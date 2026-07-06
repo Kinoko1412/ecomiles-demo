@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { STATIONS, ACHIEVEMENTS } from "@/lib/constants";
 import { useApp, type CompleteRideResult } from "@/lib/context/AppContext";
 import { getLevelByDistance } from "@/lib/levels";
+import { calcCarbonSavedKg } from "@/lib/carbon";
 import Modal from "@/components/Modal";
 
 type Phase = "idle" | "riding" | "select-end";
@@ -24,6 +25,7 @@ export default function HomePage() {
   const [startStation, setStartStation] = useState("");
   const [endStation, setEndStation] = useState("");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [liveDistanceKm, setLiveDistanceKm] = useState(0);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [simulating, setSimulating] = useState(false);
   const [settleResult, setSettleResult] = useState<CompleteRideResult | null>(null);
@@ -35,6 +37,15 @@ export default function HomePage() {
     if (phase !== "riding") return;
     const timer = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
     return () => clearInterval(timer);
+  }, [phase]);
+
+  // 即時里程：騎乘中每 0.5 秒累加一小段距離，讓畫面上的里程/減碳量持續跳動，模擬真實騎行
+  useEffect(() => {
+    if (phase !== "riding") return;
+    const tick = setInterval(() => {
+      setLiveDistanceKm((d) => d + (0.03 + Math.random() * 0.09));
+    }, 500);
+    return () => clearInterval(tick);
   }, [phase]);
 
   // GPS：能拿到就顯示，拿不到權限就安靜降級，不影響 demo 流程
@@ -61,20 +72,22 @@ export default function HomePage() {
     };
   }, [phase]);
 
-  function finalizeRide(distanceKm: number) {
-    const r = completeRide(distanceKm);
+  function finalizeRide(distanceKm: number, finalEndStation: string) {
+    const r = completeRide(distanceKm, startStation, finalEndStation);
     setSettleResult(r);
     setPhase("idle");
     setStartStation("");
     setEndStation("");
     setElapsedSeconds(0);
     setCoords(null);
+    setLiveDistanceKm(0);
   }
 
   function handleGoClick() {
     if (!startStation) return;
     setElapsedSeconds(0);
     setCoords(null);
+    setLiveDistanceKm(0);
     setPhase("riding");
   }
 
@@ -83,11 +96,8 @@ export default function HomePage() {
   }
 
   function handleConfirmEnd() {
-    const speedKmH = 12 + Math.random() * 6; // 12~18 km/h 的合理估算速度
-    let distance = (elapsedSeconds / 3600) * speedKmH;
-    distance = Math.min(15, Math.max(0.3, distance));
-    distance = Number(distance.toFixed(1));
-    finalizeRide(distance);
+    const distance = Math.max(0.1, Number(liveDistanceKm.toFixed(2)));
+    finalizeRide(distance, endStation);
   }
 
   function handleQuickSimulate() {
@@ -98,11 +108,14 @@ export default function HomePage() {
       const randomEnd = candidates[Math.floor(Math.random() * candidates.length)];
       setEndStation(randomEnd);
       setSimulating(false);
-      finalizeRide(distance);
+      finalizeRide(distance, randomEnd);
     }, 3000);
   }
 
   const goDisabled = phase === "idle" && !startStation;
+  const isOnRide = phase === "riding" || phase === "select-end";
+  const displayDistanceKm = totalDistanceKm + (isOnRide ? liveDistanceKm : 0);
+  const displayCarbonKg = totalCarbonKg + (isOnRide ? calcCarbonSavedKg(liveDistanceKm) : 0);
 
   return (
     <div className="mx-auto flex max-w-md flex-col items-center px-6 pt-10">
@@ -158,6 +171,9 @@ export default function HomePage() {
               🚴
             </span>
           </div>
+          <p className="text-sm font-semibold text-emerald-600">
+            本次里程 {liveDistanceKm.toFixed(2)} km
+          </p>
           <div className="rounded-xl bg-white/70 px-4 py-2 text-xs text-slate-400 ring-1 ring-black/5">
             {coords
               ? `目前定位：${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`
@@ -207,8 +223,8 @@ export default function HomePage() {
       )}
 
       <div className="mt-8 grid w-full grid-cols-3 gap-3">
-        <StatCard label="累積里程" value={totalDistanceKm.toFixed(1)} unit="km" />
-        <StatCard label="累積減碳量" value={totalCarbonKg.toFixed(2)} unit="kg" />
+        <StatCard label="累積里程" value={displayDistanceKm.toFixed(2)} unit="km" />
+        <StatCard label="累積減碳量" value={displayCarbonKg.toFixed(3)} unit="kg" />
         <StatCard label="目前等級" value={`${level.icon}`} unit={level.name} isText />
       </div>
 

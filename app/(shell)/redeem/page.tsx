@@ -37,12 +37,22 @@ export default function RedeemPage() {
           const stock = rewardsStock[reward.id] ?? 0;
           const soldOut = stock <= 0;
           const insufficientPoints = points < reward.cost;
+          const isGrandPrize = reward.id === "r5";
 
           return (
             <div
               key={reward.id}
-              className="flex flex-col items-center gap-2 rounded-2xl bg-white/80 p-4 text-center shadow-sm ring-1 ring-black/5"
+              className={`flex flex-col items-center gap-2 rounded-2xl p-4 text-center shadow-sm ring-1 ${
+                isGrandPrize
+                  ? "col-span-2 bg-gradient-to-br from-amber-50 to-emerald-50 ring-amber-300"
+                  : "bg-white/80 ring-black/5"
+              }`}
             >
+              {isGrandPrize && (
+                <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-bold text-white">
+                  大獎
+                </span>
+              )}
               <span className="text-4xl">{reward.icon}</span>
               <span className="text-sm font-semibold text-slate-800">{reward.name}</span>
               <span className="text-xs text-slate-400">{reward.cost} 點</span>

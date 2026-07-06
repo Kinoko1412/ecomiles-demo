@@ -11,6 +11,7 @@ import {
 import {
   ACHIEVEMENTS,
   REWARDS,
+  STATIONS,
   type AchievementCode,
 } from "@/lib/constants";
 import { calcCarbonSavedKg } from "@/lib/carbon";
@@ -36,6 +37,7 @@ type PersistedState = {
   unlockedAchievements: AchievementCode[];
   rewardsStock: Record<string, number>;
   redemptions: RedemptionRecord[];
+  visitedStations: string[];
 };
 
 function defaultState(): PersistedState {
@@ -50,6 +52,7 @@ function defaultState(): PersistedState {
     unlockedAchievements: [],
     rewardsStock,
     redemptions: [],
+    visitedStations: [],
   };
 }
 
@@ -70,7 +73,11 @@ type AppContextValue = PersistedState & {
   hydrated: boolean;
   login: (nickname: string) => void;
   logout: () => void;
-  completeRide: (distanceKm: number) => CompleteRideResult;
+  completeRide: (
+    distanceKm: number,
+    startStation: string,
+    endStation: string
+  ) => CompleteRideResult;
   redeemReward: (rewardId: string) => RedeemResult;
 };
 
@@ -123,7 +130,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const completeRide = useCallback(
-    (distanceKm: number) => {
+    (distanceKm: number, startStation: string, endStation: string) => {
       let result: CompleteRideResult = {
         distanceKm,
         carbonSavedKg: 0,
@@ -135,10 +142,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       setState((s) => {
         const carbonSavedKg = calcCarbonSavedKg(distanceKm);
-        const earnedPoints = Math.max(1, Math.floor(distanceKm));
+        const earnedPoints = Math.floor(distanceKm); // 1 公里 = 1 環保點數
         const newTotalDistance = s.totalDistanceKm + distanceKm;
         const newTotalCarbon = s.totalCarbonKg + carbonSavedKg;
         const newRideCount = s.rideCount + 1;
+        const newVisitedStations = Array.from(
+          new Set([...s.visitedStations, startStation, endStation])
+        );
 
         const oldLevel = getLevelByDistance(s.totalDistanceKm);
         const newLevel = getLevelByDistance(newTotalDistance);
@@ -151,6 +161,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (!has("first_ride") && newRideCount >= 1) newlyUnlocked.push("first_ride");
         if (!has("distance_30") && newTotalDistance >= 30) newlyUnlocked.push("distance_30");
         if (!has("carbon_1kg") && newTotalCarbon >= 1) newlyUnlocked.push("carbon_1kg");
+        if (!has("all_stations") && newVisitedStations.length >= STATIONS.length) {
+          newlyUnlocked.push("all_stations");
+        }
 
         result = {
           distanceKm,
@@ -168,6 +181,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           points: s.points + earnedPoints,
           rideCount: newRideCount,
           unlockedAchievements: [...s.unlockedAchievements, ...newlyUnlocked],
+          visitedStations: newVisitedStations,
         };
       });
 

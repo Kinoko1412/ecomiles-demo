@@ -34,7 +34,8 @@ export type AchievementCode =
   | "first_ride"
   | "distance_30"
   | "carbon_1kg"
-  | "redeemed_once";
+  | "redeemed_once"
+  | "all_stations";
 
 export type AchievementDef = {
   code: AchievementCode;
@@ -48,6 +49,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { code: "distance_30", name: "累積30公里", description: "累積騎乘里程達 30 公里", icon: "📏" },
   { code: "carbon_1kg", name: "累積減碳1公斤", description: "累積減碳量達 1 公斤", icon: "🌱" },
   { code: "redeemed_once", name: "首次兌換", description: "完成第一次獎品兌換", icon: "🎁" },
+  { code: "all_stations", name: "山海一線制霸", description: "造訪全部 14 個站點", icon: "🏆" },
 ];
 
 export type RewardDef = {
@@ -59,8 +61,9 @@ export type RewardDef = {
 };
 
 export const REWARDS: RewardDef[] = [
-  { id: "r1", name: "花蓮特色悠遊卡貼", icon: "🎫", cost: 50, initialStock: 10 },
-  { id: "r2", name: "環保購物袋", icon: "🛍️", cost: 80, initialStock: 8 },
-  { id: "r3", name: "單車維修兌換券", icon: "🔧", cost: 150, initialStock: 5 },
-  { id: "r4", name: "花蓮特產禮盒", icon: "🎁", cost: 300, initialStock: 3 },
+  { id: "r1", name: "環保帆布袋", icon: "🛍️", cost: 30, initialStock: 10 },
+  { id: "r2", name: "花蓮特產小禮", icon: "🎁", cost: 50, initialStock: 8 },
+  { id: "r3", name: "腳踏車配件", icon: "🔧", cost: 80, initialStock: 6 },
+  { id: "r4", name: "合作店家咖啡券", icon: "☕", cost: 100, initialStock: 5 },
+  { id: "r5", name: "電輔車體驗券", icon: "⚡", cost: 300, initialStock: 2 },
 ];
