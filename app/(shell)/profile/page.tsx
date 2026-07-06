@@ -59,7 +59,7 @@ export default function ProfilePage() {
         href="/profile/history"
         className="w-full rounded-full bg-white py-3 text-center text-sm font-semibold text-emerald-600 shadow-sm ring-1 ring-emerald-200 transition-colors hover:bg-emerald-50"
       >
-        查看減碳活動紀錄
+        查看我的減碳存摺
       </Link>
 
       <section>
