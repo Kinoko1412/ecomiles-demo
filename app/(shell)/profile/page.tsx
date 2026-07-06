@@ -1,27 +1,24 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ACHIEVEMENTS, STATIONS } from "@/lib/constants";
 import { useApp } from "@/lib/context/AppContext";
 import { getLevelByDistance } from "@/lib/levels";
-
-const CARBON_CREDIT_PRICE_PER_TONNE = 3000; // NT$/公噸，僅示意用參考行情
 
 export default function ProfilePage() {
   const router = useRouter();
   const {
     nickname,
     totalDistanceKm,
-    totalCarbonKg,
+    carbonSavedKg,
+    points,
     unlockedAchievements,
     redemptions,
     visitedStations,
     logout,
   } = useApp();
   const level = getLevelByDistance(totalDistanceKm);
-  const theoreticalValueNT = Math.round(
-    (totalCarbonKg / 1000) * CARBON_CREDIT_PRICE_PER_TONNE
-  );
 
   function handleLogout() {
     logout();
@@ -43,26 +40,27 @@ export default function ProfilePage() {
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <div className="rounded-2xl bg-white/80 p-4 text-center shadow-sm ring-1 ring-black/5">
           <p className="text-xs text-slate-400">累積里程</p>
-          <p className="mt-1 text-xl font-bold text-slate-800">{totalDistanceKm.toFixed(1)} km</p>
+          <p className="mt-1 text-lg font-bold text-slate-800">{totalDistanceKm.toFixed(1)} km</p>
         </div>
         <div className="rounded-2xl bg-white/80 p-4 text-center shadow-sm ring-1 ring-black/5">
           <p className="text-xs text-slate-400">累積減碳量</p>
-          <p className="mt-1 text-xl font-bold text-slate-800">{totalCarbonKg.toFixed(2)} kg</p>
+          <p className="mt-1 text-lg font-bold text-slate-800">{carbonSavedKg.toFixed(2)} kg</p>
+        </div>
+        <div className="rounded-2xl bg-white/80 p-4 text-center shadow-sm ring-1 ring-black/5">
+          <p className="text-xs text-slate-400">環保點數</p>
+          <p className="mt-1 text-lg font-bold text-slate-800">{points}</p>
         </div>
       </div>
 
-      <div className="rounded-2xl bg-gradient-to-br from-amber-50 to-emerald-50 p-4 text-center shadow-sm ring-1 ring-black/5">
-        <p className="text-xs text-slate-400">理論碳權價值</p>
-        <p className="mt-1 text-2xl font-bold text-emerald-700">
-          理論價值 NT$ {theoreticalValueNT.toLocaleString("zh-TW")}元
-        </p>
-        <p className="mt-2 text-[10px] leading-relaxed text-slate-400">
-          僅為台灣碳權交易平台市場行情換算示意，非正式可交易碳權
-        </p>
-      </div>
+      <Link
+        href="/profile/history"
+        className="w-full rounded-full bg-white py-3 text-center text-sm font-semibold text-emerald-600 shadow-sm ring-1 ring-emerald-200 transition-colors hover:bg-emerald-50"
+      >
+        查看減碳活動紀錄
+      </Link>
 
       <section>
         <h2 className="mb-2 text-sm font-semibold text-slate-600">成就</h2>

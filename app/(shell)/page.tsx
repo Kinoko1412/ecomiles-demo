@@ -18,7 +18,7 @@ function formatTime(totalSeconds: number) {
 }
 
 export default function HomePage() {
-  const { nickname, totalDistanceKm, totalCarbonKg, completeRide } = useApp();
+  const { nickname, totalDistanceKm, carbonSavedKg, completeRide } = useApp();
   const level = getLevelByDistance(totalDistanceKm);
 
   const [phase, setPhase] = useState<Phase>("idle");
@@ -115,7 +115,7 @@ export default function HomePage() {
   const goDisabled = phase === "idle" && !startStation;
   const isOnRide = phase === "riding" || phase === "select-end";
   const displayDistanceKm = totalDistanceKm + (isOnRide ? liveDistanceKm : 0);
-  const displayCarbonKg = totalCarbonKg + (isOnRide ? calcCarbonSavedKg(liveDistanceKm) : 0);
+  const displayCarbonKg = carbonSavedKg + (isOnRide ? calcCarbonSavedKg(liveDistanceKm) : 0);
 
   return (
     <div className="mx-auto flex max-w-md flex-col items-center px-6 pt-10">

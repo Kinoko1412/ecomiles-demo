@@ -10,9 +10,12 @@ import {
 } from "react";
 import {
   ACHIEVEMENTS,
+  LOTTERY_COST_POINTS,
+  LOTTERY_TIERS,
   REWARDS,
   STATIONS,
   type AchievementCode,
+  type LotteryTier,
 } from "@/lib/constants";
 import { calcCarbonSavedKg } from "@/lib/carbon";
 import { getLevelByDistance } from "@/lib/levels";
@@ -28,16 +31,28 @@ export type RedemptionRecord = {
   redeemedAt: string;
 };
 
+export type RideRecord = {
+  id: string;
+  timestamp: string;
+  startStation: string;
+  endStation: string;
+  distanceKm: number;
+  carbonSavedKg: number;
+  earnedPoints: number;
+};
+
 type PersistedState = {
   nickname: string | null;
   totalDistanceKm: number;
-  totalCarbonKg: number;
+  /** 累積減碳量（公斤）：只能在 completeRide 累加，任何兌換/抽獎/消費行為都不能修改這個欄位 */
+  carbonSavedKg: number;
   points: number;
   rideCount: number;
   unlockedAchievements: AchievementCode[];
   rewardsStock: Record<string, number>;
   redemptions: RedemptionRecord[];
   visitedStations: string[];
+  rides: RideRecord[];
 };
 
 function defaultState(): PersistedState {
@@ -46,13 +61,14 @@ function defaultState(): PersistedState {
   return {
     nickname: null,
     totalDistanceKm: 0,
-    totalCarbonKg: 0,
+    carbonSavedKg: 0,
     points: 0,
     rideCount: 0,
     unlockedAchievements: [],
     rewardsStock,
     redemptions: [],
     visitedStations: [],
+    rides: [],
   };
 }
 
@@ -69,6 +85,17 @@ export type RedeemResult =
   | { success: true; code: string; newAchievements: AchievementCode[] }
   | { success: false; reason: "insufficient_points" | "out_of_stock" };
 
+export type DrawLotteryResult =
+  | {
+      success: true;
+      tier: LotteryTier;
+      stockOut: boolean;
+      prizeName: string | null;
+      code: string | null;
+      newAchievements: AchievementCode[];
+    }
+  | { success: false; reason: "insufficient_points" };
+
 type AppContextValue = PersistedState & {
   hydrated: boolean;
   login: (nickname: string) => void;
@@ -79,6 +106,7 @@ type AppContextValue = PersistedState & {
     endStation: string
   ) => CompleteRideResult;
   redeemReward: (rewardId: string) => RedeemResult;
+  drawLottery: () => DrawLotteryResult;
 };
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -144,7 +172,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const carbonSavedKg = calcCarbonSavedKg(distanceKm);
         const earnedPoints = Math.floor(distanceKm); // 1 公里 = 1 環保點數
         const newTotalDistance = s.totalDistanceKm + distanceKm;
-        const newTotalCarbon = s.totalCarbonKg + carbonSavedKg;
+        const newTotalCarbon = s.carbonSavedKg + carbonSavedKg; // 只增不減：唯一寫入點
         const newRideCount = s.rideCount + 1;
         const newVisitedStations = Array.from(
           new Set([...s.visitedStations, startStation, endStation])
@@ -165,6 +193,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
           newlyUnlocked.push("all_stations");
         }
 
+        const rideRecord: RideRecord = {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          timestamp: new Date().toISOString(),
+          startStation,
+          endStation,
+          distanceKm,
+          carbonSavedKg,
+          earnedPoints,
+        };
+
         result = {
           distanceKm,
           carbonSavedKg,
@@ -177,11 +215,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return {
           ...s,
           totalDistanceKm: newTotalDistance,
-          totalCarbonKg: newTotalCarbon,
+          carbonSavedKg: newTotalCarbon,
           points: s.points + earnedPoints,
           rideCount: newRideCount,
           unlockedAchievements: [...s.unlockedAchievements, ...newlyUnlocked],
           visitedStations: newVisitedStations,
+          rides: [rideRecord, ...s.rides],
         };
       });
 
@@ -236,6 +275,79 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return result;
   }, []);
 
+  const drawLottery = useCallback((): DrawLotteryResult => {
+    let result: DrawLotteryResult = { success: false, reason: "insufficient_points" };
+
+    setState((s) => {
+      if (s.points < LOTTERY_COST_POINTS) {
+        result = { success: false, reason: "insufficient_points" };
+        return s;
+      }
+
+      const roll = Math.random();
+      let cumulative = 0;
+      let tier: LotteryTier = "none";
+      for (const t of LOTTERY_TIERS) {
+        cumulative += t.probability;
+        if (roll < cumulative) {
+          tier = t.tier;
+          break;
+        }
+      }
+
+      const tierDef = LOTTERY_TIERS.find((t) => t.tier === tier)!;
+      let stockOut = false;
+      let prizeName: string | null = null;
+      let code: string | null = null;
+      let newRewardsStock = s.rewardsStock;
+      let newRedemptions = s.redemptions;
+      const newlyUnlocked: AchievementCode[] = [];
+
+      if (tierDef.rewardId) {
+        const reward = REWARDS.find((r) => r.id === tierDef.rewardId)!;
+        const stock = s.rewardsStock[reward.id] ?? 0;
+        if (stock <= 0) {
+          stockOut = true;
+        } else {
+          prizeName = reward.name;
+          code = generateCode();
+          const record: RedemptionRecord = {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            rewardId: reward.id,
+            rewardName: reward.name,
+            code,
+            pointsSpent: LOTTERY_COST_POINTS,
+            redeemedAt: new Date().toISOString(),
+          };
+          newRewardsStock = { ...s.rewardsStock, [reward.id]: stock - 1 };
+          newRedemptions = [record, ...s.redemptions];
+          if (!s.unlockedAchievements.includes("redeemed_once")) {
+            newlyUnlocked.push("redeemed_once");
+          }
+        }
+      }
+
+      result = {
+        success: true,
+        tier: stockOut ? "none" : tier,
+        stockOut,
+        prizeName,
+        code,
+        newAchievements: newlyUnlocked,
+      };
+
+      return {
+        ...s,
+        points: s.points - LOTTERY_COST_POINTS,
+        rewardsStock: newRewardsStock,
+        redemptions: newRedemptions,
+        unlockedAchievements: [...s.unlockedAchievements, ...newlyUnlocked],
+      };
+    });
+
+    return result;
+  }, []);
+
   const value: AppContextValue = {
     ...state,
     hydrated,
@@ -243,6 +355,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     logout,
     completeRide,
     redeemReward,
+    drawLottery,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

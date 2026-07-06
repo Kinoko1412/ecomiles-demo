@@ -58,12 +58,85 @@ export type RewardDef = {
   icon: string;
   cost: number;
   initialStock: number;
+  /** 一句簡短描述；永續好禮用來說明低碳/環保屬性，一般商店品項則是單純的兌換說明 */
+  blurb: string;
+  /** 只透過抽獎取得，不會出現在「直接兌換」的獎品格子裡 */
+  lotteryOnly?: boolean;
 };
 
+/** 永續好禮：兌換頁主要獎品分類，皆為低碳/環保屬性商品 */
 export const REWARDS: RewardDef[] = [
-  { id: "r1", name: "環保帆布袋", icon: "🛍️", cost: 30, initialStock: 10 },
-  { id: "r2", name: "花蓮特產小禮", icon: "🎁", cost: 50, initialStock: 8 },
-  { id: "r3", name: "腳踏車配件", icon: "🔧", cost: 80, initialStock: 6 },
-  { id: "r4", name: "合作店家咖啡券", icon: "☕", cost: 100, initialStock: 5 },
-  { id: "r5", name: "電輔車體驗券", icon: "⚡", cost: 300, initialStock: 2 },
+  {
+    id: "r1",
+    name: "環保帆布袋",
+    icon: "🛍️",
+    cost: 30,
+    initialStock: 10,
+    blurb: "取代一次性塑膠袋，出門購物更環保",
+  },
+  {
+    id: "r2",
+    name: "環保餐具組",
+    icon: "🍴",
+    cost: 50,
+    initialStock: 8,
+    blurb: "隨身攜帶，減少免洗餐具與外帶垃圾",
+  },
+  {
+    id: "r3",
+    name: "在地店家抵用券",
+    icon: "🎫",
+    cost: 80,
+    initialStock: 6,
+    blurb: "支持花蓮在地店家消費，減少長途運輸的隱藏碳足跡",
+  },
+  {
+    id: "r4",
+    name: "合作店家咖啡券",
+    icon: "☕",
+    cost: 100,
+    initialStock: 5,
+    blurb: "以在地咖啡取代連鎖飲料，支持在地小店",
+  },
+  {
+    id: "r5",
+    name: "電輔車體驗券",
+    icon: "⚡",
+    cost: 300,
+    initialStock: 2,
+    blurb: "體驗電輔騎乘取代機車代步，親身感受低碳移動",
+  },
+  {
+    id: "r6",
+    name: "商店抵用券",
+    icon: "💳",
+    cost: 100,
+    initialStock: 10,
+    blurb: "消費現折 NT$50，全站商品都可折抵",
+  },
+  {
+    id: "r7",
+    name: "花蓮騎旅貼紙",
+    icon: "✨",
+    cost: 20,
+    initialStock: 20,
+    blurb: "抽獎限定小禮",
+    lotteryOnly: true,
+  },
+];
+
+export const LOTTERY_COST_POINTS = 15;
+
+export type LotteryTier = "none" | "small" | "medium" | "grand";
+
+export const LOTTERY_TIERS: {
+  tier: LotteryTier;
+  label: string;
+  probability: number;
+  rewardId: string | null;
+}[] = [
+  { tier: "none", label: "銘謝惠顧", probability: 0.5, rewardId: null },
+  { tier: "small", label: "小獎", probability: 0.3, rewardId: "r7" },
+  { tier: "medium", label: "中獎", probability: 0.15, rewardId: "r1" },
+  { tier: "grand", label: "大獎", probability: 0.05, rewardId: "r5" },
 ];
