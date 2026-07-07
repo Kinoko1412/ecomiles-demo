@@ -8,7 +8,7 @@ import { getLevelByDistance } from "@/lib/levels";
 import { calcCarbonSavedKg } from "@/lib/carbon";
 import { haversineDistanceMeters, interpolateAlongPath, type LatLng } from "@/lib/distance";
 import { getRideHighlights, getStationCoords } from "@/lib/stationHighlights";
-import { fetchCyclingRoute } from "@/lib/directions";
+import { fetchCyclingRoute, getOfficialCoastalRouteSegment } from "@/lib/directions";
 import Modal from "@/components/Modal";
 
 // mapbox-gl 在模組頂層就會摸 window/document，SSR 階段的 Node 環境沒有這些東西，
@@ -203,10 +203,17 @@ export default function HomePage() {
     const endCoords = getStationCoords(endStation);
     const token = ++routeFetchTokenRef.current;
     if (startCoords && endCoords) {
-      fetchCyclingRoute([startCoords, endCoords]).then((geometry) => {
-        if (routeFetchTokenRef.current !== token) return; // 這趟騎乘已經結束/換了下一趟，這個結果過期了
-        setRouteCoords(geometry ? geometry.coordinates.map(([lng, lat]) => ({ lat, lng })) : null);
-      });
+      // 海線（朝金定置漁場～太平洋公園）優先用 TDX 官方實測軌跡，涵蓋不到這兩站
+      // （例如任一站是山線站）才 fallback 回 Mapbox Directions API。
+      const officialGeometry = getOfficialCoastalRouteSegment(startStation, endStation);
+      if (officialGeometry) {
+        setRouteCoords(officialGeometry.coordinates.map(([lng, lat]) => ({ lat, lng })));
+      } else {
+        fetchCyclingRoute([startCoords, endCoords]).then((geometry) => {
+          if (routeFetchTokenRef.current !== token) return; // 這趟騎乘已經結束/換了下一趟，這個結果過期了
+          setRouteCoords(geometry ? geometry.coordinates.map(([lng, lat]) => ({ lat, lng })) : null);
+        });
+      }
     }
   }
 
