@@ -204,7 +204,10 @@ export default function HomePage() {
     let closest: { name: string; distanceM: number } | null = null;
     for (const h of unvisited) {
       const distanceM = haversineDistanceMeters(coords, { lat: h.lat, lng: h.lng });
-      if (!closest || distanceM < closest.distanceM) closest = { name: h.name, distanceM };
+      // 用 h.stationLabel（起訖站的中文站名，來自我們自己的 STATIONS 常數）而不是 h.name
+      // （Google Places 回傳的商家名稱，語系不一定是中文，例如「Qixingtan Scenic Area」），
+      // 「下一站」這個文字應該要是站名，不是隨機一間商家的名字。
+      if (!closest || distanceM < closest.distanceM) closest = { name: h.stationLabel, distanceM };
     }
     setNextHighlight(closest);
   }, [coords, highlights, phase]);

@@ -16,17 +16,30 @@ const FORCE_2D_MODE = process.env.NEXT_PUBLIC_DISABLE_3D_NAV === "1";
 
 const NAV_PITCH_DEG = 60;
 const NAV_ZOOM = 17;
-const CAMERA_EASE_DURATION_MS = 800;
+// easeTo 的動畫時長現在是「動態算出來的」，不是固定值：如果座標更新來得很快（例如快速模擬
+// 每 200ms 一次）卻還是用固定 800ms 跑動畫，前一次轉向動畫還沒轉完、下一次呼叫就把它打斷、
+// 換一個新目標重新轉——鏡頭永遠只轉了一小段就被打斷，方位角明顯落後於實際方向，畫面看起來
+// 像是斜著切過去而不是朝向正上方。改成用「量測到的更新間隔」的固定比例當動畫時長，確保動畫
+// 幾乎都能在下一次更新前轉完，夾在 [MIN,MAX] 之間避免間隔量測到異常值時動畫太短或太長。
+const CAMERA_EASE_MIN_DURATION_MS = 150;
+const CAMERA_EASE_MAX_DURATION_MS = 900;
+const CAMERA_EASE_DURATION_RATIO = 0.85;
+const CAMERA_EASE_FALLBACK_DURATION_MS = 800; // 還沒有上一次更新時間可以參考時（第一次移動）的預設值
 // 兩次 GPS/模擬定位點距離小於這個門檻視為雜訊（GPS 飄移或還沒真的移動），沿用上一個方向，
 // 不重新計算方位角，避免鏡頭在原地抖動亂轉。
 const BEARING_MIN_DISTANCE_M = 3;
-const BEARING_SMOOTHING_ALPHA = 0.3;
+// alpha 提高到 0.5：動畫時長已經改成動態、幾乎每次都會轉完，不需要再靠很低的 alpha 疊加一層
+// 平滑來掩蓋轉不完的問題，alpha 太低反而會讓方位角本身多一層明顯的滯後感。
+const BEARING_SMOOTHING_ALPHA = 0.5;
 // 使用者標記固定顯示在畫面偏下方，讓鏡頭朝向的前方（畫面上半部）能看到更多路況，
 // 用 easeTo 的 padding.top 把「center 對齊的視覺中心」往下推，數字是容器高度的比例。
+// 這個方向已經用一個獨立的無頭瀏覽器測試腳本實測驗證過（同一個 center + padding.top 會讓
+// map.project() 算出來的螢幕 y 座標變大、往下移），padding.bottom 才會把焦點往上推，跟直覺
+// 可能以為的方向相反。
 const CAMERA_TOP_PADDING_RATIO = 0.55;
-// easeTo 呼叫到 moveend 事件實際觸發的間隔，如果比設定的動畫時長還多出這麼多 ms，
+// easeTo 呼叫到 moveend 事件實際觸發的間隔，如果比這次動畫實際用的時長還多出這麼多 ms，
 // 代表主執行緒卡頓、渲染跟不上，連續發生這麼多次就直接降級回 2D，不要讓體驗變成連續卡頓。
-const JANK_THRESHOLD_MS = CAMERA_EASE_DURATION_MS + 700;
+const JANK_BUFFER_MS = 500;
 const JANK_STREAK_TRIGGER = 2;
 
 type HiddenHotspot = {
@@ -77,6 +90,7 @@ export default function RideMapInner({
   const lastBearingSampleRef = useRef<LatLng | null>(null);
   const currentBearingRef = useRef<number | null>(null);
   const jankStreakRef = useRef(0);
+  const lastCameraTickAtRef = useRef<number | null>(null);
 
   // 是不是啟用 3D 沉浸式導航（pitch + 鏡頭跟隨方向）。每趟新騎乘都重新給一次機會
   // （見下方建地圖的 effect），同一趟騎乘中途卡頓太多次才會被自動降級關掉。
@@ -96,6 +110,7 @@ export default function RideMapInner({
     jankStreakRef.current = 0;
     lastBearingSampleRef.current = null;
     currentBearingRef.current = null;
+    lastCameraTickAtRef.current = null;
 
     const map = new mapboxgl.Map({
       container,
@@ -144,6 +159,22 @@ export default function RideMapInner({
           },
         },
       });
+      // 發光效果：同一個 source 疊兩層，寬、低透明度、帶模糊的當背景光暈墊在下面，
+      // 窄、全不透明的核心線之後再疊上去，滿版灰色 3D 建物背景下路線才不會糊在一起。
+      // 要先加這層（glow）再加下面的核心線，Mapbox 才會照圖層清單順序把核心線畫在光暈上面。
+      map.addLayer({
+        id: "ride-route-glow",
+        type: "line",
+        source: "ride-route",
+        layout: { "line-join": "round", "line-cap": "round" },
+        paint: {
+          "line-color": "#10b981",
+          "line-width": 16,
+          "line-blur": 3,
+          "line-dasharray": [0.2, 1.5],
+          "line-opacity": 0.12,
+        },
+      });
       map.addLayer({
         id: "ride-route-line",
         type: "line",
@@ -151,7 +182,7 @@ export default function RideMapInner({
         layout: { "line-join": "round", "line-cap": "round" },
         // 先用直線當立即可見的 fallback，line-opacity 調淡表示「路線還在抓」，
         // 貼路網的真實路線抓到後會恢復成完整不透明。
-        paint: { "line-color": "#10b981", "line-width": 4, "line-dasharray": [0.2, 1.5], "line-opacity": 0.5 },
+        paint: { "line-color": "#10b981", "line-width": 5, "line-dasharray": [0.2, 1.5], "line-opacity": 0.5 },
       });
 
       const startEl = document.createElement("div");
@@ -262,18 +293,21 @@ export default function RideMapInner({
           map.fitBounds(bounds, { padding: 56, duration: 500 });
         }
       }
-      if (map.getLayer("ride-route-line")) {
+      if (map.getLayer("ride-route-line") && map.getLayer("ride-route-glow")) {
         // 山線官方路廊資料精度較低（見 getOfficialJianRouteSegment 的說明），線條故意畫得
         // 比海線/Directions API 那組淡一點、帶淺淺虛線，避免給使用者跟海線一樣的信心水準。
-        if (routeCoords && routeCoords.length >= 2 && isLowConfidenceRoute) {
-          map.setPaintProperty("ride-route-line", "line-color", "#f59e0b");
-          map.setPaintProperty("ride-route-line", "line-dasharray", [1.5, 1]);
-          map.setPaintProperty("ride-route-line", "line-opacity", 0.85);
-        } else {
-          map.setPaintProperty("ride-route-line", "line-color", "#10b981");
-          map.setPaintProperty("ride-route-line", "line-dasharray", [1, 0]);
-          map.setPaintProperty("ride-route-line", "line-opacity", 1);
-        }
+        // 光暈層（ride-route-glow）跟著核心線同步換色/換虛線樣式，只有寬度跟透明度維持不同。
+        const isLowConf = !!(routeCoords && routeCoords.length >= 2 && isLowConfidenceRoute);
+        const color = isLowConf ? "#f59e0b" : "#10b981";
+        const dasharray = isLowConf ? [1.5, 1] : [1, 0];
+
+        map.setPaintProperty("ride-route-line", "line-color", color);
+        map.setPaintProperty("ride-route-line", "line-dasharray", dasharray);
+        map.setPaintProperty("ride-route-line", "line-opacity", isLowConf ? 0.85 : 1);
+
+        map.setPaintProperty("ride-route-glow", "line-color", color);
+        map.setPaintProperty("ride-route-glow", "line-dasharray", dasharray);
+        map.setPaintProperty("ride-route-glow", "line-opacity", isLowConf ? 0.1 : 0.16);
       }
     };
 
@@ -291,13 +325,27 @@ export default function RideMapInner({
     if (!map || !userCoords) return;
 
     if (!userMarkerRef.current) {
-      const el = document.createElement("div");
-      el.textContent = "🚴";
-      el.style.fontSize = "26px";
-      el.style.filter = "drop-shadow(0 1px 2px rgba(0,0,0,0.35))";
+      // 包一層 wrapper：騎士 emoji + 下方一個模糊深色橢圓當地面陰影，anchor 設 "bottom"
+      // 讓「腳下」（陰影所在的位置）對齊實際座標，視覺上才有「站在地面上」的感覺，
+      // 不是 emoji 整個平貼在座標正中央。
+      const wrapper = document.createElement("div");
+      wrapper.style.cssText =
+        "position:relative; width:40px; height:40px; display:flex; align-items:flex-end; justify-content:center;";
+
+      const shadowEl = document.createElement("div");
+      shadowEl.style.cssText =
+        "width:20px; height:7px; border-radius:9999px; background:rgba(15,23,42,0.45); filter:blur(1.5px); margin-bottom:1px;";
+      wrapper.appendChild(shadowEl);
+
+      const emojiEl = document.createElement("div");
+      emojiEl.textContent = "🚴";
+      emojiEl.style.cssText =
+        "position:absolute; bottom:6px; font-size:26px; line-height:1; filter:drop-shadow(0 1px 2px rgba(0,0,0,0.35));";
       // 不設 rotationAlignment，標記本身固定朝上不旋轉：3D 模式下是鏡頭 bearing 在轉，
       // 不是這個 emoji 圖示本身在轉。
-      userMarkerRef.current = new mapboxgl.Marker({ element: el })
+      wrapper.appendChild(emojiEl);
+
+      userMarkerRef.current = new mapboxgl.Marker({ element: wrapper, anchor: "bottom" })
         .setLngLat([userCoords.lng, userCoords.lat])
         .addTo(map);
     } else {
@@ -319,19 +367,31 @@ export default function RideMapInner({
 
     const containerHeight = containerRef.current?.clientHeight ?? 0;
 
+    // 動畫時長 = 這次跟上次座標更新之間實際量到的間隔 * 固定比例，確保動畫幾乎都能在
+    // 下一次更新前轉完，不會被連續打斷、方位角/位置永遠追不上目標。
+    const now = performance.now();
+    const prevTickAt = lastCameraTickAtRef.current;
+    lastCameraTickAtRef.current = now;
+    const measuredIntervalMs = prevTickAt !== null ? now - prevTickAt : CAMERA_EASE_FALLBACK_DURATION_MS;
+    const easeDurationMs = Math.min(
+      CAMERA_EASE_MAX_DURATION_MS,
+      Math.max(CAMERA_EASE_MIN_DURATION_MS, measuredIntervalMs * CAMERA_EASE_DURATION_RATIO)
+    );
+
     const easeStart = performance.now();
     map.easeTo({
       center: [userCoords.lng, userCoords.lat],
       bearing,
       pitch: NAV_PITCH_DEG,
       zoom: NAV_ZOOM,
-      duration: CAMERA_EASE_DURATION_MS,
+      duration: easeDurationMs,
       padding: { top: containerHeight * CAMERA_TOP_PADDING_RATIO, bottom: 0, left: 0, right: 0 },
     });
 
+    const jankThresholdMs = easeDurationMs + JANK_BUFFER_MS;
     map.once("moveend", () => {
       const elapsed = performance.now() - easeStart;
-      if (elapsed > JANK_THRESHOLD_MS) {
+      if (elapsed > jankThresholdMs) {
         jankStreakRef.current += 1;
         if (jankStreakRef.current >= JANK_STREAK_TRIGGER) {
           console.warn(
