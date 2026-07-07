@@ -29,7 +29,7 @@ export default async function GovDashboardPage() {
   const maxCount = Math.max(1, ...ranked.map((r) => r.count));
 
   return (
-    <div className="min-h-screen bg-slate-50 px-6 py-10">
+    <div className="px-6 py-10">
       <div className="mx-auto flex max-w-2xl flex-col gap-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Ecomiles 政府儀表板</h1>

@@ -3,14 +3,17 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/lib/context/AppContext";
+import { createClient } from "@/utils/supabase/client";
 
 type Tab = "login" | "signup";
 type SignupStep = "email" | "code" | "profile";
+type Portal = "public" | "admin";
 
 export default function LoginForm() {
   const { signIn, sendSignupCode, verifySignupCode, completeSignupProfile } = useApp();
   const router = useRouter();
 
+  const [portal, setPortal] = useState<Portal>("public");
   const [tab, setTab] = useState<Tab>("login");
 
   const [loginIdentifier, setLoginIdentifier] = useState("");
@@ -41,12 +44,37 @@ export default function LoginForm() {
     setLoginSubmitting(true);
     setLoginError("");
     const result = await signIn(identifier, loginPassword);
-    setLoginSubmitting(false);
-    if (result.success) {
+    if (!result.success) {
+      setLoginSubmitting(false);
+      setLoginError(result.error ?? "登入失敗，請稍後再試");
+      return;
+    }
+
+    if (portal === "public") {
+      setLoginSubmitting(false);
       router.push("/");
       router.refresh();
+      return;
+    }
+
+    // portal === "admin"：登入成功不代表有管理權限，還要另外查 profiles.role，
+    // 沒有 admin 角色的話要把剛剛建立的 session 登出，不能讓使用者卡在
+    // 「已登入但角色不對」的中間狀態。
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const { data: profile } = user
+      ? await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+      : { data: null };
+    setLoginSubmitting(false);
+
+    if (profile?.role === "admin") {
+      router.push("/gov-dashboard");
+      router.refresh();
     } else {
-      setLoginError(result.error ?? "登入失敗，請稍後再試");
+      await supabase.auth.signOut();
+      setLoginError("此帳號未開通管理員權限，請切換至民眾登入");
     }
   }
 
@@ -132,29 +160,63 @@ export default function LoginForm() {
           <p className="mt-1 text-sm text-slate-500">花蓮單車減碳兌換</p>
         </div>
 
-        <div className="mb-6 flex rounded-full bg-slate-100 p-1 text-sm font-semibold">
+        <div className="mb-3 flex rounded-full bg-slate-100 p-1 text-xs font-semibold">
           <button
             type="button"
-            onClick={() => setTab("login")}
-            className={`flex-1 rounded-full py-2 transition-colors ${
-              tab === "login" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-400"
+            onClick={() => {
+              setPortal("public");
+              setLoginError("");
+            }}
+            className={`flex-1 rounded-full py-1.5 transition-colors ${
+              portal === "public" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-400"
             }`}
           >
-            登入
+            民眾登入
           </button>
           <button
             type="button"
             onClick={() => {
-              setTab("signup");
-              resetSignup();
+              setPortal("admin");
+              setTab("login");
+              setLoginError("");
             }}
-            className={`flex-1 rounded-full py-2 transition-colors ${
-              tab === "signup" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-400"
+            className={`flex-1 rounded-full py-1.5 transition-colors ${
+              portal === "admin" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-400"
             }`}
           >
-            註冊
+            政府管理端
           </button>
         </div>
+
+        {portal === "public" && (
+          <div className="mb-6 flex rounded-full bg-slate-100 p-1 text-sm font-semibold">
+            <button
+              type="button"
+              onClick={() => setTab("login")}
+              className={`flex-1 rounded-full py-2 transition-colors ${
+                tab === "login" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-400"
+              }`}
+            >
+              登入
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTab("signup");
+                resetSignup();
+              }}
+              className={`flex-1 rounded-full py-2 transition-colors ${
+                tab === "signup" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-400"
+              }`}
+            >
+              註冊
+            </button>
+          </div>
+        )}
+
+        {portal === "admin" && (
+          <p className="mb-4 text-center text-sm font-semibold text-slate-600">政府管理端登入</p>
+        )}
 
         {tab === "login" ? (
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
