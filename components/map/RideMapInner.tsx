@@ -32,6 +32,11 @@ export type RideMapProps = {
    * 陣列 = 拿到真實路線了。
    */
   routeCoords: LatLng[] | null | undefined;
+  /**
+   * 這條 routeCoords 是不是套用了精度較低的山線官方路廊資料（見 lib/directions.ts 的
+   * getOfficialJianRouteSegment）。只影響線條視覺樣式跟要不要顯示提醒小標籤，不影響邏輯。
+   */
+  isLowConfidenceRoute?: boolean;
 };
 
 function escapeHtml(str: string): string {
@@ -39,7 +44,13 @@ function escapeHtml(str: string): string {
   return str.replace(/[&<>"']/g, (c) => map[c]);
 }
 
-export default function RideMapInner({ startStation, endStation, userCoords, routeCoords }: RideMapProps) {
+export default function RideMapInner({
+  startStation,
+  endStation,
+  userCoords,
+  routeCoords,
+  isLowConfidenceRoute,
+}: RideMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
@@ -180,7 +191,17 @@ export default function RideMapInner({ startStation, endStation, userCoords, rou
         }
       }
       if (map.getLayer("ride-route-line")) {
-        map.setPaintProperty("ride-route-line", "line-opacity", 1);
+        // 山線官方路廊資料精度較低（見 getOfficialJianRouteSegment 的說明），線條故意畫得
+        // 比海線/Directions API 那組淡一點、帶淺淺虛線，避免給使用者跟海線一樣的信心水準。
+        if (routeCoords && routeCoords.length >= 2 && isLowConfidenceRoute) {
+          map.setPaintProperty("ride-route-line", "line-color", "#f59e0b");
+          map.setPaintProperty("ride-route-line", "line-dasharray", [1.5, 1]);
+          map.setPaintProperty("ride-route-line", "line-opacity", 0.85);
+        } else {
+          map.setPaintProperty("ride-route-line", "line-color", "#10b981");
+          map.setPaintProperty("ride-route-line", "line-dasharray", [1, 0]);
+          map.setPaintProperty("ride-route-line", "line-opacity", 1);
+        }
       }
     };
 
@@ -189,7 +210,7 @@ export default function RideMapInner({ startStation, endStation, userCoords, rou
     } else {
       map.once("load", apply);
     }
-  }, [routeCoords, startStation, endStation]);
+  }, [routeCoords, startStation, endStation, isLowConfidenceRoute]);
 
   // 使用者目前位置（真實 GPS watchPosition 或快速模擬的內插座標）：跟著座標更新標記，不重建地圖
   useEffect(() => {
@@ -209,5 +230,17 @@ export default function RideMapInner({ startStation, endStation, userCoords, rou
     }
   }, [userCoords]);
 
-  return <div ref={containerRef} className="h-full w-full" />;
+  return (
+    <div className="relative h-full w-full">
+      <div ref={containerRef} className="h-full w-full" />
+      {routeCoords && routeCoords.length >= 2 && isLowConfidenceRoute && (
+        <div
+          className="pointer-events-none absolute left-1/2 z-10 -translate-x-1/2 rounded-full bg-amber-50/95 px-3 py-1 text-[11px] font-medium text-amber-700 shadow ring-1 ring-amber-200"
+          style={{ top: "calc(env(safe-area-inset-top) + 84px)" }}
+        >
+          🚧 山線路廊為參考路網，精度較低
+        </div>
+      )}
+    </div>
+  );
 }

@@ -8,7 +8,11 @@ import { getLevelByDistance } from "@/lib/levels";
 import { calcCarbonSavedKg } from "@/lib/carbon";
 import { haversineDistanceMeters, interpolateAlongPath, type LatLng } from "@/lib/distance";
 import { getRideHighlights, getStationCoords } from "@/lib/stationHighlights";
-import { fetchCyclingRoute, getOfficialCoastalRouteSegment } from "@/lib/directions";
+import {
+  fetchCyclingRoute,
+  getOfficialCoastalRouteSegment,
+  getOfficialJianRouteSegment,
+} from "@/lib/directions";
 import Modal from "@/components/Modal";
 
 // mapbox-gl 在模組頂層就會摸 window/document，SSR 階段的 Node 環境沒有這些東西，
@@ -51,6 +55,8 @@ export default function HomePage() {
   const [arrivalToast, setArrivalToast] = useState<{ id: string; name: string } | null>(null);
   // undefined = 還在抓路線、null = 抓失敗（地圖維持直線）、陣列 = 拿到真實貼路網的路線
   const [routeCoords, setRouteCoords] = useState<LatLng[] | null | undefined>(undefined);
+  // 這趟路線是不是套用了精度較低的山線官方路廊資料，只影響地圖上的線條樣式，不影響邏輯判斷
+  const [isLowConfidenceRoute, setIsLowConfidenceRoute] = useState(false);
 
   const watchIdRef = useRef<number | null>(null);
   const simulateTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -197,17 +203,25 @@ export default function HomePage() {
     setSpeedKmh(0);
     setLiveDistanceKm(0);
     setRouteCoords(undefined);
+    setIsLowConfidenceRoute(false);
     setPhase("riding");
 
     const startCoords = getStationCoords(startStation);
     const endCoords = getStationCoords(endStation);
     const token = ++routeFetchTokenRef.current;
     if (startCoords && endCoords) {
-      // 海線（朝金定置漁場～太平洋公園）優先用 TDX 官方實測軌跡，涵蓋不到這兩站
-      // （例如任一站是山線站）才 fallback 回 Mapbox Directions API。
-      const officialGeometry = getOfficialCoastalRouteSegment(startStation, endStation);
+      // 海線（朝金定置漁場～太平洋公園）優先用 TDX 官方實測軌跡；山線（吉安火車站～白鮑溪沿線）
+      // 優先用另一份精度較低的 TDX 官方路廊參考軌跡；兩者都涵蓋不到這兩站（例如跨海線/山線的
+      // 組合）才 fallback 回 Mapbox Directions API。
+      const officialCoastalGeometry = getOfficialCoastalRouteSegment(startStation, endStation);
+      const officialJianGeometry = officialCoastalGeometry
+        ? null
+        : getOfficialJianRouteSegment(startStation, endStation);
+      const officialGeometry = officialCoastalGeometry ?? officialJianGeometry;
+
       if (officialGeometry) {
         setRouteCoords(officialGeometry.coordinates.map(([lng, lat]) => ({ lat, lng })));
+        setIsLowConfidenceRoute(!!officialJianGeometry);
       } else {
         fetchCyclingRoute([startCoords, endCoords]).then((geometry) => {
           if (routeFetchTokenRef.current !== token) return; // 這趟騎乘已經結束/換了下一趟，這個結果過期了
@@ -332,6 +346,7 @@ export default function HomePage() {
               endStation={endStation}
               userCoords={coords}
               routeCoords={routeCoords}
+              isLowConfidenceRoute={isLowConfidenceRoute}
             />
           </div>
 
