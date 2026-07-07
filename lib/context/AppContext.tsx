@@ -65,16 +65,31 @@ export type DrawLotteryResult =
     }
   | { success: false; reason: "insufficient_points" };
 
+export type DailyCheckinResult = {
+  streakDays: number;
+  pointsEarned: number;
+  alreadyClaimedToday: boolean;
+  newAchievements: AchievementCode[];
+};
+
 type ProfileState = {
   displayName: string | null;
   totalDistanceKm: number;
   carbonSavedKg: number;
   pointsBalance: number;
   rideCount: number;
+  currentStreakDays: number;
 };
 
 function emptyProfile(): ProfileState {
-  return { displayName: null, totalDistanceKm: 0, carbonSavedKg: 0, pointsBalance: 0, rideCount: 0 };
+  return {
+    displayName: null,
+    totalDistanceKm: 0,
+    carbonSavedKg: 0,
+    pointsBalance: 0,
+    rideCount: 0,
+    currentStreakDays: 0,
+  };
 }
 
 // 把 Supabase Auth 回傳的英文錯誤訊息轉成中文提示，未命中的情況原樣顯示英文訊息當備援。
@@ -138,6 +153,7 @@ type ProfileRow = {
   carbon_saved_kg: string | number;
   points_balance: number;
   ride_count: number;
+  current_streak_days: number;
 };
 
 type AppContextValue = {
@@ -148,6 +164,11 @@ type AppContextValue = {
   carbonSavedKg: number;
   points: number;
   rideCount: number;
+  currentStreakDays: number;
+  /** 這次登入/開啟 App 剛拿到的簽到獎勵，只在真的有新發放點數時才會有值，
+   *  給 UI 跳一次性的 toast 用；顯示完呼叫 clearCheckinToast() 清掉，不然會一直顯示。 */
+  checkinToast: DailyCheckinResult | null;
+  clearCheckinToast: () => void;
   unlockedAchievements: AchievementCode[];
   rewards: RewardWithStock[];
   rewardsStock: Record<string, number>;
@@ -181,6 +202,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [redemptions, setRedemptions] = useState<RedemptionRecord[]>([]);
   const [unlockedAchievements, setUnlockedAchievements] = useState<AchievementCode[]>([]);
   const [rewards, setRewards] = useState<RewardWithStock[]>([]);
+  const [checkinToast, setCheckinToast] = useState<DailyCheckinResult | null>(null);
 
   const resetToLoggedOut = useCallback(() => {
     setUserId(null);
@@ -188,7 +210,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setRides([]);
     setRedemptions([]);
     setUnlockedAchievements([]);
+    setCheckinToast(null);
   }, []);
+
+  const clearCheckinToast = useCallback(() => setCheckinToast(null), []);
 
   const loadAll = useCallback(
     async (uid: string) => {
@@ -217,6 +242,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           carbonSavedKg: Number(profileRes.data.carbon_saved_kg),
           pointsBalance: profileRes.data.points_balance,
           rideCount: profileRes.data.ride_count,
+          currentStreakDays: profileRes.data.current_streak_days,
         });
       }
 
@@ -270,6 +296,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [supabase]
   );
 
+  // 每次開啟 App／登入都呼叫一次；RPC 自己會判斷今天簽到過沒有，這裡不用先查
+  // last_checkin_date 再決定要不要呼叫。只有真的發到新點數（沒有重複簽到）才跳 toast。
+  const claimDailyCheckin = useCallback(async () => {
+    const { data, error } = await supabase.rpc("claim_daily_checkin");
+    if (error || !data) {
+      console.warn("每日簽到失敗：", error?.message);
+      return;
+    }
+    const result = data as unknown as DailyCheckinResult;
+
+    setProfile((p) => ({
+      ...p,
+      currentStreakDays: result.streakDays,
+      pointsBalance: p.pointsBalance + result.pointsEarned,
+    }));
+    if (result.newAchievements.length > 0) {
+      setUnlockedAchievements((prev) => [...prev, ...result.newAchievements]);
+    }
+    if (!result.alreadyClaimedToday && result.pointsEarned > 0) {
+      setCheckinToast(result);
+    }
+  }, [supabase]);
+
   useEffect(() => {
     let active = true;
 
@@ -282,6 +331,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (user) {
         setUserId(user.id);
         await loadAll(user.id);
+        claimDailyCheckin();
       }
       setHydrated(true);
     }
@@ -291,7 +341,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setUserId(session.user.id);
-        loadAll(session.user.id);
+        loadAll(session.user.id).then(() => claimDailyCheckin());
       } else {
         resetToLoggedOut();
       }
@@ -301,7 +351,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       active = false;
       subscription.subscription.unsubscribe();
     };
-  }, [supabase, loadAll, resetToLoggedOut]);
+  }, [supabase, loadAll, resetToLoggedOut, claimDailyCheckin]);
 
   // 註冊第一步：寄出 6 位數驗證碼（沿用 Magic Link 樣板的 {{ .Token }}，不是點連結）。
   // 同一支函式也用來做「重新發送」。
@@ -529,6 +579,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     carbonSavedKg: profile.carbonSavedKg,
     points: profile.pointsBalance,
     rideCount: profile.rideCount,
+    currentStreakDays: profile.currentStreakDays,
+    checkinToast,
+    clearCheckinToast,
     unlockedAchievements,
     rewards,
     rewardsStock,

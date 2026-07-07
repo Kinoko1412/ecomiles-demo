@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ACHIEVEMENTS, STATIONS } from "@/lib/constants";
 import { useApp } from "@/lib/context/AppContext";
-import { getLevelByDistance } from "@/lib/levels";
+import { getLevelByDistance, getNextLevel } from "@/lib/levels";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -13,12 +13,21 @@ export default function ProfilePage() {
     totalDistanceKm,
     carbonSavedKg,
     points,
+    currentStreakDays,
     unlockedAchievements,
     redemptions,
     visitedStations,
     logout,
   } = useApp();
   const level = getLevelByDistance(totalDistanceKm);
+  const nextLevel = getNextLevel(totalDistanceKm);
+  // 到下一級還差多少公里、目前這一級走了多少百分比，Lv.20（最高級）沒有下一級可比。
+  const levelProgressPercent = nextLevel
+    ? Math.min(
+        100,
+        ((totalDistanceKm - level.minKm) / (nextLevel.minKm - level.minKm)) * 100
+      )
+    : 100;
 
   async function handleLogout() {
     await logout();
@@ -38,6 +47,32 @@ export default function ProfilePage() {
         <span className="rounded-full px-3 py-1 text-xs font-semibold" style={{ backgroundColor: `${level.color}22`, color: level.color }}>
           {level.name}
         </span>
+        {currentStreakDays > 0 && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-600 ring-1 ring-orange-200">
+            🔥 連續簽到 {currentStreakDays} 天
+          </span>
+        )}
+      </div>
+
+      <div className="w-full">
+        {nextLevel ? (
+          <>
+            <div className="mb-1 flex items-center justify-between text-[11px] text-slate-400">
+              <span>距離 {nextLevel.name} 還差 {(nextLevel.minKm - totalDistanceKm).toFixed(1)} km</span>
+              <span>{levelProgressPercent.toFixed(0)}%</span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{ width: `${levelProgressPercent}%`, backgroundColor: level.color }}
+              />
+            </div>
+          </>
+        ) : (
+          <p className="text-center text-[11px] font-medium text-amber-600">
+            🎉 已達最高等級 {level.name}
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-3 gap-3">

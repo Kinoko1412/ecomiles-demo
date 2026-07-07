@@ -56,7 +56,7 @@ function formatDistanceLabel(distanceM: number) {
 }
 
 export default function HomePage() {
-  const { nickname, totalDistanceKm, carbonSavedKg, completeRide } = useApp();
+  const { nickname, totalDistanceKm, carbonSavedKg, currentStreakDays, completeRide } = useApp();
   const level = getLevelByDistance(totalDistanceKm);
 
   const [phase, setPhase] = useState<Phase>("idle");
@@ -364,6 +364,11 @@ export default function HomePage() {
         <>
           <h1 className="text-3xl font-extrabold tracking-tight text-emerald-700">Ecomiles</h1>
           <p className="mt-1 text-sm text-slate-500">嗨，{nickname} 👋 準備好騎一趟了嗎？</p>
+          {currentStreakDays > 0 && (
+            <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-600 ring-1 ring-orange-200">
+              🔥 連續簽到 {currentStreakDays} 天
+            </span>
+          )}
           {errorMsg && (
             <p className="mt-2 rounded-xl bg-red-50 px-3 py-1.5 text-xs text-red-500">{errorMsg}</p>
           )}

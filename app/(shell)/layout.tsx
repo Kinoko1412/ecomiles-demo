@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import BottomNav from "@/components/BottomNav";
 import AiGuideFab from "@/components/AiGuideFab";
+import DailyCheckinToast from "@/components/DailyCheckinToast";
 
 export default async function ShellLayout({
   children,
@@ -28,6 +29,7 @@ export default async function ShellLayout({
       <main className="flex-1 pb-24">{children}</main>
       <BottomNav />
       <AiGuideFab />
+      <DailyCheckinToast />
     </div>
   );
 }
