@@ -6,7 +6,12 @@ import { STATIONS, ACHIEVEMENTS } from "@/lib/constants";
 import { useApp, type CompleteRideResult } from "@/lib/context/AppContext";
 import { getLevelByDistance } from "@/lib/levels";
 import { calcCarbonSavedKg } from "@/lib/carbon";
-import { haversineDistanceMeters, interpolateAlongPath, type LatLng } from "@/lib/distance";
+import {
+  haversineDistanceMeters,
+  interpolateAlongPath,
+  totalPathDistanceKm,
+  type LatLng,
+} from "@/lib/distance";
 import { getRideHighlights, getStationCoords } from "@/lib/stationHighlights";
 import {
   fetchCyclingRoute,
@@ -29,6 +34,13 @@ const RideMap = dynamic(() => import("@/components/map/RideMapInner"), {
 type Phase = "idle" | "riding";
 
 const ARRIVAL_RADIUS_M = 80;
+const SIMULATE_TICK_MS = 200;
+// 快速模擬的總時長跟著路線實際距離拉長，但夾在一個 demo 還能耐心等待的範圍內：
+// 完全依照真實均速（例如 18 km/h）換算的話，一趟 5 公里的路線要等 16 分鐘，demo 不可能這樣跑，
+// 所以這裡只是「距離越長、模擬跑越久」的近似感，不是真的物理模擬。
+const SIMULATE_BASE_DURATION_MS = 6000;
+const SIMULATE_DURATION_PER_KM_MS = 800;
+const SIMULATE_MAX_DURATION_MS = 16000;
 
 function formatTime(totalSeconds: number) {
   const m = Math.floor(totalSeconds / 60)
@@ -44,7 +56,7 @@ function formatDistanceLabel(distanceM: number) {
 }
 
 export default function HomePage() {
-  const { nickname, totalDistanceKm, carbonSavedKg, points, completeRide } = useApp();
+  const { nickname, totalDistanceKm, carbonSavedKg, completeRide } = useApp();
   const level = getLevelByDistance(totalDistanceKm);
 
   const [phase, setPhase] = useState<Phase>("idle");
@@ -278,23 +290,32 @@ export default function HomePage() {
 
     // 有真實路網路線就沿著它走，還在抓或抓失敗就退回起訖兩點的直線
     const path = routeCoords && routeCoords.length >= 2 ? routeCoords : [startCoords, endCoords];
+    // 用路線的真實長度算這趟騎乘的里程，不要再用一個跟路線無關的隨機數字，
+    // 這樣「本次里程」「本趟點數」「節省碳量」在模擬過程中才會是同一組有意義、對得起來的數字。
+    const totalDistanceKm = Math.max(0.05, totalPathDistanceKm(path));
+    const totalDurationMs = Math.min(
+      SIMULATE_MAX_DURATION_MS,
+      SIMULATE_BASE_DURATION_MS + totalDistanceKm * SIMULATE_DURATION_PER_KM_MS
+    );
+    const steps = Math.max(1, Math.round(totalDurationMs / SIMULATE_TICK_MS));
 
     setSimulating(true);
-    const steps = 15;
+    setLiveDistanceKm(0);
     let step = 0;
     simulateTimerRef.current = setInterval(() => {
       step += 1;
-      const next = interpolateAlongPath(path, step / steps);
+      const t = step / steps;
+      const next = interpolateAlongPath(path, t);
       setCoords(next);
       updateComputedSpeed(next);
+      setLiveDistanceKm(totalDistanceKm * t);
       if (step >= steps) {
         if (simulateTimerRef.current) clearInterval(simulateTimerRef.current);
         simulateTimerRef.current = null;
-        const distance = Number((2 + Math.random() * 6).toFixed(1));
         setSimulating(false);
-        finalizeRide(distance);
+        finalizeRide(Number(totalDistanceKm.toFixed(2)));
       }
-    }, 200);
+    }, SIMULATE_TICK_MS);
   }
 
   const goDisabled = !startStation || !endStation || startStation === endStation;
@@ -309,7 +330,7 @@ export default function HomePage() {
             className="rounded-full bg-emerald-500 px-5 py-2.5 text-center text-sm font-semibold text-white shadow-lg"
             style={{ animation: "toast-pop 2.6s ease-in-out" }}
           >
-            🌟 抵達{arrivalToast.name}！+10 分
+            🌟 抵達{arrivalToast.name}！
           </div>
         </div>
       )}
@@ -439,8 +460,8 @@ export default function HomePage() {
               </div>
               <div className="h-6 w-px bg-white/10" />
               <div className="text-center">
-                <p className="text-[10px] text-slate-400">累積點數</p>
-                <p className="text-sm font-bold text-white">{points} 點</p>
+                <p className="text-[10px] text-slate-400">本趟點數</p>
+                <p className="text-sm font-bold text-white">{Math.floor(liveDistanceKm)} 點</p>
               </div>
               <div className="h-6 w-px bg-white/10" />
               <div className="text-center">

@@ -19,6 +19,15 @@ export function interpolateLatLng(a: LatLng, b: LatLng, t: number): LatLng {
   return { lat: a.lat + (b.lat - a.lat) * t, lng: a.lng + (b.lng - a.lng) * t };
 }
 
+/** 一條多點路徑（例如 Directions API 或官方路廊回傳的幾何）的總長度，公里。 */
+export function totalPathDistanceKm(path: LatLng[]): number {
+  let totalM = 0;
+  for (let i = 0; i < path.length - 1; i++) {
+    totalM += haversineDistanceMeters(path[i], path[i + 1]);
+  }
+  return totalM / 1000;
+}
+
 /**
  * 沿著多點路徑（例如 Directions API 回傳的路網幾何）走到整條路徑的第 t 個比例位置（0~1），
  * 依每段的實際距離加權，不是單純依索引位置切，這樣長短不一的路段才不會走起來忽快忽慢。
