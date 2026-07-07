@@ -6,8 +6,9 @@ import { STATIONS, ACHIEVEMENTS } from "@/lib/constants";
 import { useApp, type CompleteRideResult } from "@/lib/context/AppContext";
 import { getLevelByDistance } from "@/lib/levels";
 import { calcCarbonSavedKg } from "@/lib/carbon";
-import { haversineDistanceMeters, interpolateLatLng, type LatLng } from "@/lib/distance";
+import { haversineDistanceMeters, interpolateAlongPath, type LatLng } from "@/lib/distance";
 import { getRideHighlights, getStationCoords } from "@/lib/stationHighlights";
+import { fetchCyclingRoute } from "@/lib/directions";
 import Modal from "@/components/Modal";
 
 // mapbox-gl 在模組頂層就會摸 window/document，SSR 階段的 Node 環境沒有這些東西，
@@ -48,11 +49,14 @@ export default function HomePage() {
   const [settleResult, setSettleResult] = useState<CompleteRideResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [arrivalToast, setArrivalToast] = useState<{ id: string; name: string } | null>(null);
+  // undefined = 還在抓路線、null = 抓失敗（地圖維持直線）、陣列 = 拿到真實貼路網的路線
+  const [routeCoords, setRouteCoords] = useState<LatLng[] | null | undefined>(undefined);
 
   const watchIdRef = useRef<number | null>(null);
   const simulateTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const visitedHighlightIdsRef = useRef<Set<string>>(new Set());
   const lastSpeedSampleRef = useRef<{ coords: LatLng; t: number } | null>(null);
+  const routeFetchTokenRef = useRef(0);
 
   const highlights = useMemo(
     () => (startStation && endStation ? getRideHighlights(startStation, endStation) : []),
@@ -179,6 +183,7 @@ export default function HomePage() {
       setCoords(null);
       setLiveDistanceKm(0);
       setSpeedKmh(0);
+      setRouteCoords(undefined);
       lastSpeedSampleRef.current = null;
     }
   }
@@ -191,7 +196,18 @@ export default function HomePage() {
     setCoords(null);
     setSpeedKmh(0);
     setLiveDistanceKm(0);
+    setRouteCoords(undefined);
     setPhase("riding");
+
+    const startCoords = getStationCoords(startStation);
+    const endCoords = getStationCoords(endStation);
+    const token = ++routeFetchTokenRef.current;
+    if (startCoords && endCoords) {
+      fetchCyclingRoute([startCoords, endCoords]).then((geometry) => {
+        if (routeFetchTokenRef.current !== token) return; // 這趟騎乘已經結束/換了下一趟，這個結果過期了
+        setRouteCoords(geometry ? geometry.coordinates.map(([lng, lat]) => ({ lat, lng })) : null);
+      });
+    }
   }
 
   function handleEndRide() {
@@ -204,12 +220,15 @@ export default function HomePage() {
     const endCoords = getStationCoords(endStation);
     if (!startCoords || !endCoords) return;
 
+    // 有真實路網路線就沿著它走，還在抓或抓失敗就退回起訖兩點的直線
+    const path = routeCoords && routeCoords.length >= 2 ? routeCoords : [startCoords, endCoords];
+
     setSimulating(true);
     const steps = 15;
     let step = 0;
     simulateTimerRef.current = setInterval(() => {
       step += 1;
-      const next = interpolateLatLng(startCoords, endCoords, step / steps);
+      const next = interpolateAlongPath(path, step / steps);
       setCoords(next);
       updateComputedSpeed(next);
       if (step >= steps) {
@@ -300,7 +319,12 @@ export default function HomePage() {
       {phase === "riding" && (
         <div className="fixed inset-0 z-50 bg-slate-900">
           <div className="absolute inset-0">
-            <RideMap startStation={startStation} endStation={endStation} userCoords={coords} />
+            <RideMap
+              startStation={startStation}
+              endStation={endStation}
+              userCoords={coords}
+              routeCoords={routeCoords}
+            />
           </div>
 
           {/* 頂部：左上角即時時速徽章 + 本次里程資訊列 */}

@@ -4,7 +4,6 @@ import { useEffect, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { getRideHighlights, getStationCoords } from "@/lib/stationHighlights";
-import { fetchCyclingRoute } from "@/lib/directions";
 import type { LatLng } from "@/lib/distance";
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
@@ -13,6 +12,12 @@ export type RideMapProps = {
   startStation: string;
   endStation: string;
   userCoords: LatLng | null;
+  /**
+   * 貼路網的真實路線座標，由上層元件（要同步拿來算快速模擬移動路徑）呼叫 Mapbox Directions
+   * API 取得，這個元件本身不重複發那個請求。undefined = 還在抓、null = 抓失敗（維持直線）、
+   * 陣列 = 拿到真實路線了。
+   */
+  routeCoords: LatLng[] | null | undefined;
 };
 
 function escapeHtml(str: string): string {
@@ -20,7 +25,7 @@ function escapeHtml(str: string): string {
   return str.replace(/[&<>"']/g, (c) => map[c]);
 }
 
-export default function RideMapInner({ startStation, endStation, userCoords }: RideMapProps) {
+export default function RideMapInner({ startStation, endStation, userCoords, routeCoords }: RideMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
@@ -44,7 +49,6 @@ export default function RideMapInner({ startStation, endStation, userCoords }: R
     });
     mapRef.current = map;
     userMarkerRef.current = null;
-    let routeFetchCancelled = false;
 
     const highlightMarkers: mapboxgl.Marker[] = [];
 
@@ -106,27 +110,9 @@ export default function RideMapInner({ startStation, endStation, userCoords }: R
       }
 
       map.fitBounds(bounds, { padding: 56, duration: 0 });
-
-      // 背景抓真正貼路網的路線，抓到就把直線換掉、bounds 重新涵蓋整條路線的每個轉折點；
-      // 抓不到就保留現有的直線，只是把 opacity 復原，不當作還在載入中。
-      fetchCyclingRoute([startCoords, endCoords]).then((geometry) => {
-        if (routeFetchCancelled) return;
-        const source = map.getSource("ride-route") as mapboxgl.GeoJSONSource | undefined;
-        if (source && geometry) {
-          source.setData({ type: "Feature", properties: {}, geometry });
-          for (const [lng, lat] of geometry.coordinates) {
-            bounds.extend([lng, lat]);
-          }
-          map.fitBounds(bounds, { padding: 56, duration: 500 });
-        }
-        if (map.getLayer("ride-route-line")) {
-          map.setPaintProperty("ride-route-line", "line-opacity", 1);
-        }
-      });
     });
 
     return () => {
-      routeFetchCancelled = true;
       highlightMarkers.forEach((m) => m.remove());
       userMarkerRef.current?.remove();
       userMarkerRef.current = null;
@@ -134,6 +120,43 @@ export default function RideMapInner({ startStation, endStation, userCoords }: R
       mapRef.current = null;
     };
   }, [startStation, endStation]);
+
+  // 上層元件抓到真正貼路網的路線後把直線換掉；bounds 重新涵蓋路線上每個點，opacity 復原成正常。
+  // routeCoords 是 null（抓失敗，維持直線但不再當作「還在載入」）也要把 opacity 復原。
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || routeCoords === undefined) return;
+
+    const apply = () => {
+      if (routeCoords && routeCoords.length >= 2) {
+        const source = map.getSource("ride-route") as mapboxgl.GeoJSONSource | undefined;
+        if (source) {
+          source.setData({
+            type: "Feature",
+            properties: {},
+            geometry: {
+              type: "LineString",
+              coordinates: routeCoords.map((c) => [c.lng, c.lat]),
+            },
+          });
+
+          const bounds = new mapboxgl.LngLatBounds();
+          for (const c of routeCoords) bounds.extend([c.lng, c.lat]);
+          for (const h of getRideHighlights(startStation, endStation)) bounds.extend([h.lng, h.lat]);
+          map.fitBounds(bounds, { padding: 56, duration: 500 });
+        }
+      }
+      if (map.getLayer("ride-route-line")) {
+        map.setPaintProperty("ride-route-line", "line-opacity", 1);
+      }
+    };
+
+    if (map.isStyleLoaded()) {
+      apply();
+    } else {
+      map.once("load", apply);
+    }
+  }, [routeCoords, startStation, endStation]);
 
   // 使用者目前位置（真實 GPS watchPosition 或快速模擬的內插座標）：跟著座標更新標記，不重建地圖
   useEffect(() => {
