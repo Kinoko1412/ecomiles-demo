@@ -19,6 +19,7 @@ import {
   getOfficialJianRouteSegment,
 } from "@/lib/directions";
 import Modal from "@/components/Modal";
+import WeatherCard from "@/components/WeatherCard";
 
 // mapbox-gl 在模組頂層就會摸 window/document，SSR 階段的 Node 環境沒有這些東西，
 // 一定要用 next/dynamic + ssr:false 讓它只在瀏覽器端載入。
@@ -366,6 +367,10 @@ export default function HomePage() {
           {errorMsg && (
             <p className="mt-2 rounded-xl bg-red-50 px-3 py-1.5 text-xs text-red-500">{errorMsg}</p>
           )}
+
+          <div className="mt-4 w-full">
+            <WeatherCard />
+          </div>
 
           <button
             onClick={handleGoClick}

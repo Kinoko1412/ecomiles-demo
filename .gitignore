@@ -39,6 +39,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# 外部 API 的本地快取 fallback 檔案（例如天氣），內容是執行期抓到的資料，不是原始碼
+data/.cache/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
