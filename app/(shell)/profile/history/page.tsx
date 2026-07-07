@@ -1,18 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import dynamic from "next/dynamic";
 import { useApp } from "@/lib/context/AppContext";
 import BackHeader from "@/components/BackHeader";
 import Modal from "@/components/Modal";
+
+// recharts 依賴瀏覽器的 ResizeObserver 等 API，build/SSR 階段的 Node 環境沒有這些東西，
+// 一定要用 next/dynamic + ssr:false 讓它只在瀏覽器端載入，避免拖慢或卡住靜態預渲染。
+const CarbonTrendChart = dynamic(() => import("@/components/charts/CarbonTrendChart"), {
+  ssr: false,
+  loading: () => <div className="h-40 w-full animate-pulse rounded-xl bg-slate-100" />,
+});
 
 /** demo 用的簡單 count-up 動畫：掛載或數值變動時，從 0 用 ease-out 曲線跳到目標值 */
 function useCountUp(target: number, durationMs = 1200) {
@@ -102,17 +101,7 @@ export default function CarbonPassbookPage() {
 
       <div className="rounded-2xl bg-white/80 p-4 shadow-sm ring-1 ring-black/5">
         <h2 className="mb-2 text-sm font-semibold text-slate-600">近 7 天減碳趨勢</h2>
-        <div className="h-40 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="day" tick={{ fontSize: 10 }} />
-              <YAxis tick={{ fontSize: 10 }} />
-              <Tooltip formatter={(value) => [`${value} kg`, "減碳量"]} />
-              <Bar dataKey="carbon" fill="#10b981" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        <CarbonTrendChart data={chartData} />
       </div>
 
       <section>

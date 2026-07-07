@@ -19,6 +19,7 @@ import {
 } from "@/lib/constants";
 import { calcCarbonSavedKg } from "@/lib/carbon";
 import { getLevelByDistance } from "@/lib/levels";
+import { generateSeedRedemption, generateSeedRides, SEED_POINTS } from "@/lib/seedData";
 
 const STORAGE_KEY = "ecomiles-state-v1";
 
@@ -58,17 +59,34 @@ type PersistedState = {
 function defaultState(): PersistedState {
   const rewardsStock: Record<string, number> = {};
   for (const r of REWARDS) rewardsStock[r.id] = r.initialStock;
+
+  // Demo 用假歷史資料：只在第一次沒有 localStorage 資料時當作初始狀態，
+  // 之後的真實操作一律走 completeRide/redeemReward/drawLottery 正常累加，
+  // 這幾個 function 完全沒有引用這裡的任何東西。細節說明見 lib/seedData.ts。
+  const seedRides = generateSeedRides();
+  const seedRedemption = generateSeedRedemption();
+  const seedDistanceKm = seedRides.reduce((sum, r) => sum + r.distanceKm, 0);
+  const seedCarbonKg = seedRides.reduce((sum, r) => sum + r.carbonSavedKg, 0);
+  const seedVisitedStations = Array.from(
+    new Set(seedRides.flatMap((r) => [r.startStation, r.endStation]))
+  );
+
+  rewardsStock[seedRedemption.rewardId] = Math.max(
+    0,
+    (rewardsStock[seedRedemption.rewardId] ?? 0) - 1
+  );
+
   return {
     nickname: null,
-    totalDistanceKm: 0,
-    carbonSavedKg: 0,
-    points: 0,
-    rideCount: 0,
-    unlockedAchievements: [],
+    totalDistanceKm: seedDistanceKm,
+    carbonSavedKg: seedCarbonKg,
+    points: SEED_POINTS,
+    rideCount: seedRides.length,
+    unlockedAchievements: ["first_ride", "carbon_1kg", "redeemed_once"],
     rewardsStock,
-    redemptions: [],
-    visitedStations: [],
-    rides: [],
+    redemptions: [seedRedemption],
+    visitedStations: seedVisitedStations,
+    rides: seedRides,
   };
 }
 
