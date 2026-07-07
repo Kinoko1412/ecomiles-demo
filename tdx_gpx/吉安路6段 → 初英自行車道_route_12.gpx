@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk><name>吉安路6段 → 初英自行車道</name><trkseg>
+    <trkpt lat="23.94660899863179" lon="121.54779699650452"></trkpt>
+    <trkpt lat="23.952442996586907" lon="121.53572899807772"></trkpt>
+    <trkpt lat="23.952383996934184" lon="121.534630996389"></trkpt>
+    <trkpt lat="23.952908002327856" lon="121.53471800477716"></trkpt>
+    <trkpt lat="23.94661300008387" lon="121.54778899663356"></trkpt>
+    <trkpt lat="23.946560000643732" lon="121.54785399747375"></trkpt>
+  </trkseg></trk>
+</gpx>

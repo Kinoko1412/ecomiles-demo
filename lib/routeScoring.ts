@@ -34,6 +34,9 @@ const COASTAL_POLICY_BONUS = 1.0;
 const JIAN_POLICY_BONUS = 1.2; // 政策上想引導人潮往山線分流，山線站點加權加成
 const CROWDING_THRESHOLD = 1.5; // 當月人次超過全年月均的 1.5 倍才開始扣分，避免熱門月份被過度懲罰
 const DISTANCE_PENALTY_WEIGHT = 0.1; // 區間總距離的懲罰係數，避免無腦推薦「距離無限長」的區間
+// 隱藏熱點要離最近站多近才算「順路detour」。原本設 400 公尺，但實際資料裡最近的一筆是
+// 445 公尺，卡在門檻外一點點導致這個欄位永遠是空的，所以放寬到 500 公尺讓機制真的會觸發。
+const HOTSPOT_DETOUR_MAX_DISTANCE_M = 500;
 
 /**
  * 14 站相鄰站點間的距離（公里），index i 代表 STATIONS[i] 與 STATIONS[i+1] 之間的距離
@@ -168,7 +171,7 @@ export function recommendBestRoute(params: {
   const startIndex = currentStationIndex;
   const endIndex = best.interval.lo === currentStationIndex ? best.interval.hi : best.interval.lo;
 
-  const detours = HIDDEN_HOTSPOTS.filter((h) => h.distanceToNearestStationM < 400)
+  const detours = HIDDEN_HOTSPOTS.filter((h) => h.distanceToNearestStationM < HOTSPOT_DETOUR_MAX_DISTANCE_M)
     .map((h) => {
       const idx = STATIONS.findIndex((name) => name === h.nearestStation) + 1;
       return idx > 0 ? { ...h, nearestStationIndex: idx } : null;

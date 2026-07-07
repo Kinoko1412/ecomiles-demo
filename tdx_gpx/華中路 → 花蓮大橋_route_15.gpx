@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk><name>華中路 → 花蓮大橋</name><trkseg>
+    <trkpt lat="23.937282002213458" lon="121.6026010013695"></trkpt>
+    <trkpt lat="23.935458000834046" lon="121.6012799972567"></trkpt>
+    <trkpt lat="23.934315003893392" lon="121.60018599625657"></trkpt>
+    <trkpt lat="23.93323300407907" lon="121.59932500255871"></trkpt>
+    <trkpt lat="23.931912997411683" lon="121.59847499899185"></trkpt>
+    <trkpt lat="23.929821996862323" lon="121.59763000037135"></trkpt>
+    <trkpt lat="23.926166000214444" lon="121.59601699741089"></trkpt>
+    <trkpt lat="23.92567399709444" lon="121.594694000928"></trkpt>
+  </trkseg></trk>
+</gpx>

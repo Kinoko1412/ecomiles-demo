@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk><name>瑞穗大橋橋頭 → 瑞穗大橋橋尾</name><trkseg>
+    <trkpt lat="23.4880279988302" lon="121.40261099644829"></trkpt>
+    <trkpt lat="23.485800996749113" lon="121.40395099680276"></trkpt>
+    <trkpt lat="23.483856004252416" lon="121.40512600115898"></trkpt>
+    <trkpt lat="23.487979002150105" lon="121.40252700345984"></trkpt>
+    <trkpt lat="23.487958003449798" lon="121.40253900137103"></trkpt>
+    <trkpt lat="23.487557998422567" lon="121.40277399705155"></trkpt>
+    <trkpt lat="23.487427003389982" lon="121.40285299821744"></trkpt>
+    <trkpt lat="23.48736600024896" lon="121.4028899963007"></trkpt>
+    <trkpt lat="23.487300003448546" lon="121.40293399879164"></trkpt>
+    <trkpt lat="23.48377699829538" lon="121.40503999943348"></trkpt>
+  </trkseg></trk>
+</gpx>

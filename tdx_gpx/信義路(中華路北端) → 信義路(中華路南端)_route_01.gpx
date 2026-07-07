@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk><name>信義路(中華路北端) → 信義路(中華路南端)</name><trkseg>
+    <trkpt lat="23.751508997057726" lon="121.45274600328943"></trkpt>
+    <trkpt lat="23.751391000688745" lon="121.45271399773509"></trkpt>
+    <trkpt lat="23.747751997552477" lon="121.45120600454372"></trkpt>
+    <trkpt lat="23.745482997756646" lon="121.45031200466633"></trkpt>
+    <trkpt lat="23.742121002473677" lon="121.44890500428441"></trkpt>
+    <trkpt lat="23.74196399682671" lon="121.44887299847555"></trkpt>
+    <trkpt lat="23.74090299822564" lon="121.44906599573706"></trkpt>
+  </trkseg></trk>
+</gpx>
