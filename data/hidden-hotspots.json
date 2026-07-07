@@ -1,0 +1,66 @@
+[
+  {
+    "lat": 23.967288,
+    "lng": 121.562605,
+    "photoCount": 211,
+    "nearestStation": "吉安農會",
+    "distanceToNearestStationM": 534,
+    "sampleTitle": "(無標題)"
+  },
+  {
+    "lat": 24.008345,
+    "lng": 121.610176,
+    "photoCount": 181,
+    "nearestStation": "農好基地/四八高地",
+    "distanceToNearestStationM": 2702,
+    "sampleTitle": "精修_P3206"
+  },
+  {
+    "lat": 23.9462,
+    "lng": 121.543933,
+    "photoCount": 141,
+    "nearestStation": "干城綠色廊道",
+    "distanceToNearestStationM": 446,
+    "sampleTitle": "DSC00786"
+  },
+  {
+    "lat": 23.918343,
+    "lng": 121.482275,
+    "photoCount": 127,
+    "nearestStation": "鯉魚潭遊客中心",
+    "distanceToNearestStationM": 3186,
+    "sampleTitle": "DSC08750"
+  },
+  {
+    "lat": 23.965975,
+    "lng": 121.610747,
+    "photoCount": 124,
+    "nearestStation": "太平洋公園",
+    "distanceToNearestStationM": 1458,
+    "sampleTitle": "(無標題)"
+  },
+  {
+    "lat": 23.986772,
+    "lng": 121.606444,
+    "photoCount": 121,
+    "nearestStation": "太平洋公園",
+    "distanceToNearestStationM": 1561,
+    "sampleTitle": "IMG_8348"
+  },
+  {
+    "lat": 24.027725,
+    "lng": 121.631658,
+    "photoCount": 118,
+    "nearestStation": "農好基地/四八高地",
+    "distanceToNearestStationM": 445,
+    "sampleTitle": "20251120_170054"
+  },
+  {
+    "lat": 23.952036,
+    "lng": 121.591163,
+    "photoCount": 90,
+    "nearestStation": "吉安火車站",
+    "distanceToNearestStationM": 1989,
+    "sampleTitle": "IMG_7280"
+  }
+]

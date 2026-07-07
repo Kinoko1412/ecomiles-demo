@@ -1,0 +1,72 @@
+{
+  "1": {
+    "station": "朝金定置漁場",
+    "segment": "coastal",
+    "photoCount500m": 160
+  },
+  "2": {
+    "station": "七星潭風景區",
+    "segment": "coastal",
+    "photoCount500m": 713
+  },
+  "3": {
+    "station": "農好基地/四八高地",
+    "segment": "coastal",
+    "photoCount500m": 346
+  },
+  "4": {
+    "station": "花蓮酒廠",
+    "segment": "coastal",
+    "photoCount500m": 34
+  },
+  "5": {
+    "station": "奇萊鼻燈塔",
+    "segment": "coastal",
+    "photoCount500m": 32
+  },
+  "6": {
+    "station": "花蓮港觀光遊憩碼頭",
+    "segment": "coastal",
+    "photoCount500m": 41
+  },
+  "7": {
+    "station": "花蓮港景觀橋",
+    "segment": "coastal",
+    "photoCount500m": 3
+  },
+  "8": {
+    "station": "太平洋公園",
+    "segment": "coastal",
+    "photoCount500m": 19
+  },
+  "9": {
+    "station": "吉安火車站",
+    "segment": "jian",
+    "photoCount500m": 0
+  },
+  "10": {
+    "station": "吉安慶修院",
+    "segment": "jian",
+    "photoCount500m": 114
+  },
+  "11": {
+    "station": "吉安農會",
+    "segment": "jian",
+    "photoCount500m": 116
+  },
+  "12": {
+    "station": "干城綠色廊道",
+    "segment": "jian",
+    "photoCount500m": 250
+  },
+  "13": {
+    "station": "鯉魚潭遊客中心",
+    "segment": "jian",
+    "photoCount500m": 162
+  },
+  "14": {
+    "station": "白鮑溪沿線",
+    "segment": "jian",
+    "photoCount500m": 0
+  }
+}

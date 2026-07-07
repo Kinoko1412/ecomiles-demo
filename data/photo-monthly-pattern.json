@@ -1,0 +1,268 @@
+{
+  "1": {
+    "station": "朝金定置漁場",
+    "segment": "coastal",
+    "monthlyCounts": [
+      9,
+      3,
+      7,
+      4,
+      0,
+      9,
+      20,
+      40,
+      18,
+      22,
+      12,
+      20
+    ],
+    "peakMonth": 8
+  },
+  "2": {
+    "station": "七星潭風景區",
+    "segment": "coastal",
+    "monthlyCounts": [
+      42,
+      17,
+      52,
+      80,
+      25,
+      39,
+      81,
+      131,
+      155,
+      51,
+      68,
+      45
+    ],
+    "peakMonth": 9
+  },
+  "3": {
+    "station": "農好基地/四八高地",
+    "segment": "coastal",
+    "monthlyCounts": [
+      1,
+      18,
+      13,
+      185,
+      69,
+      9,
+      59,
+      41,
+      95,
+      20,
+      42,
+      100
+    ],
+    "peakMonth": 4
+  },
+  "4": {
+    "station": "花蓮酒廠",
+    "segment": "coastal",
+    "monthlyCounts": [
+      4,
+      0,
+      6,
+      30,
+      22,
+      7,
+      3,
+      3,
+      14,
+      5,
+      0,
+      14
+    ],
+    "peakMonth": 4
+  },
+  "5": {
+    "station": "奇萊鼻燈塔",
+    "segment": "coastal",
+    "monthlyCounts": [
+      0,
+      1,
+      0,
+      0,
+      2,
+      2,
+      13,
+      12,
+      6,
+      0,
+      2,
+      2
+    ],
+    "peakMonth": 7
+  },
+  "6": {
+    "station": "花蓮港觀光遊憩碼頭",
+    "segment": "coastal",
+    "monthlyCounts": [
+      2,
+      0,
+      0,
+      64,
+      1,
+      6,
+      2,
+      8,
+      47,
+      9,
+      5,
+      12
+    ],
+    "peakMonth": 4
+  },
+  "7": {
+    "station": "花蓮港景觀橋",
+    "segment": "coastal",
+    "monthlyCounts": [
+      0,
+      0,
+      0,
+      12,
+      0,
+      8,
+      1,
+      20,
+      16,
+      40,
+      25,
+      22
+    ],
+    "peakMonth": 10
+  },
+  "8": {
+    "station": "太平洋公園",
+    "segment": "coastal",
+    "monthlyCounts": [
+      48,
+      22,
+      6,
+      96,
+      35,
+      34,
+      119,
+      32,
+      223,
+      124,
+      156,
+      439
+    ],
+    "peakMonth": 12
+  },
+  "9": {
+    "station": "吉安火車站",
+    "segment": "jian",
+    "monthlyCounts": [
+      0,
+      2,
+      1,
+      59,
+      0,
+      37,
+      7,
+      1,
+      144,
+      7,
+      4,
+      120
+    ],
+    "peakMonth": 9
+  },
+  "10": {
+    "station": "吉安慶修院",
+    "segment": "jian",
+    "monthlyCounts": [
+      13,
+      0,
+      0,
+      82,
+      8,
+      0,
+      1,
+      12,
+      2,
+      0,
+      0,
+      16
+    ],
+    "peakMonth": 4
+  },
+  "11": {
+    "station": "吉安農會",
+    "segment": "jian",
+    "monthlyCounts": [
+      170,
+      23,
+      49,
+      19,
+      3,
+      3,
+      16,
+      5,
+      38,
+      1,
+      0,
+      7
+    ],
+    "peakMonth": 1
+  },
+  "12": {
+    "station": "干城綠色廊道",
+    "segment": "jian",
+    "monthlyCounts": [
+      31,
+      85,
+      18,
+      7,
+      4,
+      46,
+      43,
+      10,
+      23,
+      51,
+      144,
+      101
+    ],
+    "peakMonth": 11
+  },
+  "13": {
+    "station": "鯉魚潭遊客中心",
+    "segment": "jian",
+    "monthlyCounts": [
+      90,
+      20,
+      58,
+      143,
+      32,
+      33,
+      54,
+      37,
+      149,
+      96,
+      45,
+      22
+    ],
+    "peakMonth": 9
+  },
+  "14": {
+    "station": "白鮑溪沿線",
+    "segment": "jian",
+    "monthlyCounts": [
+      32,
+      27,
+      11,
+      9,
+      25,
+      1,
+      37,
+      16,
+      33,
+      21,
+      7,
+      59
+    ],
+    "peakMonth": 12
+  }
+}

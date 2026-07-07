@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import {
+  getPhotoPopularity,
   getPlaceIcon,
   getStationDirectoryPlaces,
   getStationsBySegment,
@@ -58,6 +59,7 @@ export default function RoutePage() {
           {stations.map((s) => {
             const isOpen = expanded.has(s.name);
             const places = isOpen ? getStationDirectoryPlaces(s.name) : [];
+            const popularity = getPhotoPopularity(s.name);
             return (
               <div key={s.name} className="flex gap-3">
                 <div className="z-10 flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-sky-500 text-lg font-bold text-white shadow-md ring-4 ring-white">
@@ -70,7 +72,19 @@ export default function RoutePage() {
                     onClick={() => toggleStation(s.name)}
                     className="flex w-full items-center justify-between gap-2 rounded-2xl bg-white/85 px-4 py-3 text-left shadow-sm ring-1 ring-black/5 transition-colors hover:bg-white"
                   >
-                    <span className="text-sm font-semibold text-slate-800">{s.name}</span>
+                    <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+                      <span className="text-sm font-semibold text-slate-800">{s.name}</span>
+                      {popularity && (
+                        <span className="whitespace-nowrap rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-600">
+                          📸 {popularity.photoCount500m} 張歷史打卡
+                        </span>
+                      )}
+                      {popularity?.isPeakMonth && (
+                        <span className="whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                          🔥 本月是熱門旺季
+                        </span>
+                      )}
+                    </span>
                     <span
                       className={`shrink-0 text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
                     >

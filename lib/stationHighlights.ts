@@ -1,4 +1,6 @@
 import rawHighlights from "@/data/station-highlights.json";
+import rawPhotoPopularity from "@/data/photo-popularity.json";
+import rawPhotoMonthlyPattern from "@/data/photo-monthly-pattern.json";
 import { STATIONS } from "@/lib/constants";
 
 export type HighlightPlace = {
@@ -158,6 +160,42 @@ export function getPlaceIcon(types: string[]): string {
     if (types.some((t) => candidates.includes(t))) return icon;
   }
   return "📍";
+}
+
+type PhotoPopularityEntry = { station: string; segment: "coastal" | "jian"; photoCount500m: number };
+type PhotoMonthlyPatternEntry = {
+  station: string;
+  segment: "coastal" | "jian";
+  monthlyCounts: number[];
+  peakMonth: number;
+};
+
+const PHOTO_POPULARITY = rawPhotoPopularity as Record<string, PhotoPopularityEntry>;
+const PHOTO_MONTHLY_PATTERN = rawPhotoMonthlyPattern as Record<string, PhotoMonthlyPatternEntry>;
+
+export type PhotoPopularity = {
+  photoCount500m: number;
+  thisMonthCount: number;
+  isPeakMonth: boolean;
+};
+
+/** 該站附近 500 公尺內的歷史打卡照片人氣資訊，資料缺漏或站點找不到就回傳 null（呼叫端不顯示徽章）*/
+export function getPhotoPopularity(stationName: string): PhotoPopularity | null {
+  const key = keyForStation(stationName);
+  if (!key) return null;
+
+  const popularity = PHOTO_POPULARITY[key];
+  const monthly = PHOTO_MONTHLY_PATTERN[key];
+  if (!popularity || !monthly || !popularity.photoCount500m) return null;
+
+  const currentMonth = new Date().getMonth() + 1;
+  const thisMonthCount = monthly.monthlyCounts[currentMonth - 1] ?? 0;
+
+  return {
+    photoCount500m: popularity.photoCount500m,
+    thisMonthCount,
+    isPeakMonth: currentMonth === monthly.peakMonth,
+  };
 }
 
 export type RideHighlight = HighlightPlace & { stationLabel: string };

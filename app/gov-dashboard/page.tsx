@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
+import YearlyPopularityTrendSection from "@/components/charts/YearlyPopularityTrendSection";
 
 const CARBON_CREDIT_PRICE_PER_TONNE = 3000; // NT$/公噸，僅示意用台灣碳權交易平台現行行情
 
@@ -84,6 +85,14 @@ export default async function GovDashboardPage() {
               </div>
             ))}
           </div>
+        </div>
+
+        <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+          <h2 className="mb-3 text-sm font-semibold text-slate-600">歷年打卡照片熱度趨勢</h2>
+          <YearlyPopularityTrendSection />
+          <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
+            資料來源：Flickr公開地理標記照片（2017~2026），僅供趨勢參考，非官方觀光統計
+          </p>
         </div>
       </div>
     </div>

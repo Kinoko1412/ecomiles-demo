@@ -4,9 +4,23 @@ import { useEffect, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { getRideHighlights, getStationCoords } from "@/lib/stationHighlights";
+import hiddenHotspotsData from "@/data/hidden-hotspots.json";
 import type { LatLng } from "@/lib/distance";
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
+
+type HiddenHotspot = {
+  lat: number;
+  lng: number;
+  photoCount: number;
+  nearestStation: string;
+  distanceToNearestStationM: number;
+  sampleTitle: string;
+};
+
+// 靜態資料，不用像加分站點那樣依起訖站篩選：這 8 個熱點固定顯示在每一趟騎乘的地圖上，
+// 純粹是「這裡歷史上很多人打卡拍照」的輔助展示，跟計分完全無關。
+const HIDDEN_HOTSPOTS = hiddenHotspotsData as HiddenHotspot[];
 
 export type RideMapProps = {
   startStation: string;
@@ -109,6 +123,24 @@ export default function RideMapInner({ startStation, endStation, userCoords, rou
         bounds.extend([h.lng, h.lat]);
       }
 
+      for (const spot of HIDDEN_HOTSPOTS) {
+        const el = document.createElement("div");
+        el.textContent = "📷";
+        el.style.fontSize = "18px";
+        el.style.cursor = "pointer";
+        el.style.opacity = "0.7";
+        const popup = new mapboxgl.Popup({ offset: 16, closeButton: false }).setHTML(`
+          <div style="font-size:13px;line-height:1.6;">
+            📷 歷史打卡點｜${spot.photoCount}張照片<br/>
+            範例：${escapeHtml(spot.sampleTitle)}
+          </div>
+        `);
+        highlightMarkers.push(
+          new mapboxgl.Marker({ element: el }).setLngLat([spot.lng, spot.lat]).setPopup(popup).addTo(map)
+        );
+        bounds.extend([spot.lng, spot.lat]);
+      }
+
       map.fitBounds(bounds, { padding: 56, duration: 0 });
     });
 
@@ -143,6 +175,7 @@ export default function RideMapInner({ startStation, endStation, userCoords, rou
           const bounds = new mapboxgl.LngLatBounds();
           for (const c of routeCoords) bounds.extend([c.lng, c.lat]);
           for (const h of getRideHighlights(startStation, endStation)) bounds.extend([h.lng, h.lat]);
+          for (const spot of HIDDEN_HOTSPOTS) bounds.extend([spot.lng, spot.lat]);
           map.fitBounds(bounds, { padding: 56, duration: 500 });
         }
       }
