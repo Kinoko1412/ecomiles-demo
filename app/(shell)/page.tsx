@@ -29,6 +29,7 @@ export default function HomePage() {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [simulating, setSimulating] = useState(false);
   const [settleResult, setSettleResult] = useState<CompleteRideResult | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const watchIdRef = useRef<number | null>(null);
 
@@ -72,15 +73,21 @@ export default function HomePage() {
     };
   }, [phase]);
 
-  function finalizeRide(distanceKm: number, finalEndStation: string) {
-    const r = completeRide(distanceKm, startStation, finalEndStation);
-    setSettleResult(r);
-    setPhase("idle");
-    setStartStation("");
-    setEndStation("");
-    setElapsedSeconds(0);
-    setCoords(null);
-    setLiveDistanceKm(0);
+  async function finalizeRide(distanceKm: number, finalEndStation: string) {
+    setErrorMsg(null);
+    try {
+      const r = await completeRide(distanceKm, startStation, finalEndStation);
+      setSettleResult(r);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "騎乘結算失敗，請稍後再試");
+    } finally {
+      setPhase("idle");
+      setStartStation("");
+      setEndStation("");
+      setElapsedSeconds(0);
+      setCoords(null);
+      setLiveDistanceKm(0);
+    }
   }
 
   function handleGoClick() {
@@ -121,6 +128,9 @@ export default function HomePage() {
     <div className="mx-auto flex max-w-md flex-col items-center px-6 pt-10">
       <h1 className="text-3xl font-extrabold tracking-tight text-emerald-700">Ecomiles</h1>
       <p className="mt-1 text-sm text-slate-500">嗨，{nickname} 👋 準備好騎一趟了嗎？</p>
+      {errorMsg && (
+        <p className="mt-2 rounded-xl bg-red-50 px-3 py-1.5 text-xs text-red-500">{errorMsg}</p>
+      )}
 
       <button
         onClick={handleGoClick}

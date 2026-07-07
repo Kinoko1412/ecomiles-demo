@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { LOTTERY_COST_POINTS, LOTTERY_TIERS, REWARDS } from "@/lib/constants";
+import { LOTTERY_COST_POINTS, LOTTERY_TIERS } from "@/lib/constants";
 import { useApp, type DrawLotteryResult } from "@/lib/context/AppContext";
 import Modal from "@/components/Modal";
 import RedeemTabs from "@/components/RedeemTabs";
@@ -14,7 +14,7 @@ const TIER_LABELS: Record<string, string> = {
 };
 
 export default function LotteryPage() {
-  const { points, rewardsStock, drawLottery } = useApp();
+  const { points, rewards, rewardsStock, drawLottery } = useApp();
   const [drawing, setDrawing] = useState(false);
   const [insufficient, setInsufficient] = useState(false);
   const [result, setResult] = useState<DrawLotteryResult | null>(null);
@@ -26,10 +26,13 @@ export default function LotteryPage() {
       return;
     }
     setDrawing(true);
-    setTimeout(() => {
-      const r = drawLottery();
-      setDrawing(false);
-      setResult(r);
+    setTimeout(async () => {
+      try {
+        const r = await drawLottery();
+        setResult(r);
+      } finally {
+        setDrawing(false);
+      }
     }, 1000);
   }
 
@@ -66,7 +69,7 @@ export default function LotteryPage() {
         <h2 className="mb-2 text-sm font-semibold text-slate-600">獎項機率與剩餘數量</h2>
         <div className="flex flex-col gap-2">
           {LOTTERY_TIERS.map((t) => {
-            const reward = t.rewardId ? REWARDS.find((r) => r.id === t.rewardId) : null;
+            const reward = t.rewardId ? rewards.find((r) => r.id === t.rewardId) : null;
             const stock = t.rewardId ? rewardsStock[t.rewardId] ?? 0 : null;
             return (
               <div

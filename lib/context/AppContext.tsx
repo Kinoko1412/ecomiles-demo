@@ -5,32 +5,12 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from "react";
-import {
-  ACHIEVEMENTS,
-  LOTTERY_COST_POINTS,
-  LOTTERY_TIERS,
-  REWARDS,
-  STATIONS,
-  type AchievementCode,
-  type LotteryTier,
-} from "@/lib/constants";
-import { calcCarbonSavedKg } from "@/lib/carbon";
-import { getLevelByDistance } from "@/lib/levels";
-import { generateSeedRedemption, generateSeedRides, SEED_POINTS } from "@/lib/seedData";
-
-const STORAGE_KEY = "ecomiles-state-v1";
-
-export type RedemptionRecord = {
-  id: string;
-  rewardId: string;
-  rewardName: string;
-  code: string;
-  pointsSpent: number;
-  redeemedAt: string;
-};
+import { createClient } from "@/utils/supabase/client";
+import { LOTTERY_COST_POINTS, LOTTERY_TIERS, type AchievementCode, type LotteryTier } from "@/lib/constants";
 
 export type RideRecord = {
   id: string;
@@ -42,53 +22,24 @@ export type RideRecord = {
   earnedPoints: number;
 };
 
-type PersistedState = {
-  nickname: string | null;
-  totalDistanceKm: number;
-  /** 累積減碳量（公斤）：只能在 completeRide 累加，任何兌換/抽獎/消費行為都不能修改這個欄位 */
-  carbonSavedKg: number;
-  points: number;
-  rideCount: number;
-  unlockedAchievements: AchievementCode[];
-  rewardsStock: Record<string, number>;
-  redemptions: RedemptionRecord[];
-  visitedStations: string[];
-  rides: RideRecord[];
+export type RedemptionRecord = {
+  id: string;
+  rewardId: string;
+  rewardName: string;
+  code: string;
+  pointsSpent: number;
+  redeemedAt: string;
 };
 
-function defaultState(): PersistedState {
-  const rewardsStock: Record<string, number> = {};
-  for (const r of REWARDS) rewardsStock[r.id] = r.initialStock;
-
-  // Demo 用假歷史資料：只在第一次沒有 localStorage 資料時當作初始狀態，
-  // 之後的真實操作一律走 completeRide/redeemReward/drawLottery 正常累加，
-  // 這幾個 function 完全沒有引用這裡的任何東西。細節說明見 lib/seedData.ts。
-  const seedRides = generateSeedRides();
-  const seedRedemption = generateSeedRedemption();
-  const seedDistanceKm = seedRides.reduce((sum, r) => sum + r.distanceKm, 0);
-  const seedCarbonKg = seedRides.reduce((sum, r) => sum + r.carbonSavedKg, 0);
-  const seedVisitedStations = Array.from(
-    new Set(seedRides.flatMap((r) => [r.startStation, r.endStation]))
-  );
-
-  rewardsStock[seedRedemption.rewardId] = Math.max(
-    0,
-    (rewardsStock[seedRedemption.rewardId] ?? 0) - 1
-  );
-
-  return {
-    nickname: null,
-    totalDistanceKm: seedDistanceKm,
-    carbonSavedKg: seedCarbonKg,
-    points: SEED_POINTS,
-    rideCount: seedRides.length,
-    unlockedAchievements: ["first_ride", "carbon_1kg", "redeemed_once"],
-    rewardsStock,
-    redemptions: [seedRedemption],
-    visitedStations: seedVisitedStations,
-    rides: seedRides,
-  };
-}
+export type RewardWithStock = {
+  id: string;
+  name: string;
+  icon: string;
+  cost: number;
+  blurb: string;
+  lotteryOnly: boolean;
+  stock: number;
+};
 
 export type CompleteRideResult = {
   distanceKm: number;
@@ -114,263 +65,387 @@ export type DrawLotteryResult =
     }
   | { success: false; reason: "insufficient_points" };
 
-type AppContextValue = PersistedState & {
+type ProfileState = {
+  displayName: string | null;
+  totalDistanceKm: number;
+  carbonSavedKg: number;
+  pointsBalance: number;
+  rideCount: number;
+};
+
+function emptyProfile(): ProfileState {
+  return { displayName: null, totalDistanceKm: 0, carbonSavedKg: 0, pointsBalance: 0, rideCount: 0 };
+}
+
+// Postgres 的 numeric 欄位透過 PostgREST 回來是字串（避免浮點數失真），
+// 一律在這個檔案的邊界統一轉成 number，其他地方就不用再擔心型別。
+type RideRow = {
+  id: string;
+  created_at: string;
+  start_station: string;
+  end_station: string;
+  distance_km: string | number;
+  carbon_saved_kg: string | number;
+  earned_points: number;
+};
+
+type RedemptionRow = {
+  id: string;
+  reward_id: string;
+  code: string;
+  points_spent: number;
+  redeemed_at: string;
+  rewards: { name: string } | null;
+};
+
+type RewardWithStockRow = {
+  id: string;
+  name: string;
+  icon: string;
+  cost_points: number;
+  blurb: string;
+  lottery_only: boolean;
+  current_stock: number;
+};
+
+type ProfileRow = {
+  display_name: string | null;
+  total_distance_km: string | number;
+  carbon_saved_kg: string | number;
+  points_balance: number;
+  ride_count: number;
+};
+
+type AppContextValue = {
   hydrated: boolean;
-  login: (nickname: string) => void;
-  logout: () => void;
+  loggedIn: boolean;
+  nickname: string | null;
+  totalDistanceKm: number;
+  carbonSavedKg: number;
+  points: number;
+  rideCount: number;
+  unlockedAchievements: AchievementCode[];
+  rewards: RewardWithStock[];
+  rewardsStock: Record<string, number>;
+  redemptions: RedemptionRecord[];
+  visitedStations: string[];
+  rides: RideRecord[];
+  login: (email: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
+  completeOnboarding: (displayName: string) => Promise<void>;
   completeRide: (
     distanceKm: number,
     startStation: string,
     endStation: string
-  ) => CompleteRideResult;
-  redeemReward: (rewardId: string) => RedeemResult;
-  drawLottery: () => DrawLotteryResult;
+  ) => Promise<CompleteRideResult>;
+  redeemReward: (rewardId: string) => Promise<RedeemResult>;
+  drawLottery: () => Promise<DrawLotteryResult>;
 };
 
 const AppContext = createContext<AppContextValue | null>(null);
 
-function generateCode(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let out = "";
-  for (let i = 0; i < 8; i++) {
-    out += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return out;
-}
-
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<PersistedState>(defaultState());
+  const supabase = useMemo(() => createClient(), []);
+
   const [hydrated, setHydrated] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [profile, setProfile] = useState<ProfileState>(emptyProfile());
+  const [rides, setRides] = useState<RideRecord[]>([]);
+  const [redemptions, setRedemptions] = useState<RedemptionRecord[]>([]);
+  const [unlockedAchievements, setUnlockedAchievements] = useState<AchievementCode[]>([]);
+  const [rewards, setRewards] = useState<RewardWithStock[]>([]);
 
-  useEffect(() => {
-    // 故意在首次掛載後才讀取 localStorage 並覆蓋 state：SSR 與初次 client render
-    // 都必須輸出跟 defaultState() 一致的畫面，才不會有 hydration mismatch。
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Partial<PersistedState>;
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setState({ ...defaultState(), ...parsed });
+  const resetToLoggedOut = useCallback(() => {
+    setUserId(null);
+    setProfile(emptyProfile());
+    setRides([]);
+    setRedemptions([]);
+    setUnlockedAchievements([]);
+  }, []);
+
+  const loadAll = useCallback(
+    async (uid: string) => {
+      const [profileRes, ridesRes, redemptionsRes, achievementsRes, rewardsRes] = await Promise.all([
+        supabase.from("profiles").select("*").eq("id", uid).maybeSingle<ProfileRow>(),
+        supabase
+          .from("rides")
+          .select("*")
+          .eq("user_id", uid)
+          .order("created_at", { ascending: false })
+          .returns<RideRow[]>(),
+        supabase
+          .from("redemptions")
+          .select("id, reward_id, code, points_spent, redeemed_at, rewards(name)")
+          .eq("user_id", uid)
+          .order("redeemed_at", { ascending: false })
+          .returns<RedemptionRow[]>(),
+        supabase.from("user_achievements").select("achievement_code").eq("user_id", uid),
+        supabase.from("rewards_with_stock").select("*").returns<RewardWithStockRow[]>(),
+      ]);
+
+      if (profileRes.data) {
+        setProfile({
+          displayName: profileRes.data.display_name,
+          totalDistanceKm: Number(profileRes.data.total_distance_km),
+          carbonSavedKg: Number(profileRes.data.carbon_saved_kg),
+          pointsBalance: profileRes.data.points_balance,
+          rideCount: profileRes.data.ride_count,
+        });
       }
-    } catch {
-      // localStorage 不可用或資料損毀，安靜使用預設狀態
-    }
-    setHydrated(true);
-  }, []);
+
+      if (ridesRes.data) {
+        setRides(
+          ridesRes.data.map((r) => ({
+            id: r.id,
+            timestamp: r.created_at,
+            startStation: r.start_station,
+            endStation: r.end_station,
+            distanceKm: Number(r.distance_km),
+            carbonSavedKg: Number(r.carbon_saved_kg),
+            earnedPoints: r.earned_points,
+          }))
+        );
+      }
+
+      if (redemptionsRes.data) {
+        setRedemptions(
+          redemptionsRes.data.map((r) => ({
+            id: r.id,
+            rewardId: r.reward_id,
+            rewardName: r.rewards?.name ?? r.reward_id,
+            code: r.code,
+            pointsSpent: r.points_spent,
+            redeemedAt: r.redeemed_at,
+          }))
+        );
+      }
+
+      if (achievementsRes.data) {
+        setUnlockedAchievements(
+          achievementsRes.data.map((a) => a.achievement_code as AchievementCode)
+        );
+      }
+
+      if (rewardsRes.data) {
+        setRewards(
+          rewardsRes.data.map((r) => ({
+            id: r.id,
+            name: r.name,
+            icon: r.icon,
+            cost: r.cost_points,
+            blurb: r.blurb,
+            lotteryOnly: r.lottery_only,
+            stock: r.current_stock,
+          }))
+        );
+      }
+    },
+    [supabase]
+  );
 
   useEffect(() => {
-    if (!hydrated) return;
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {
-      // 忽略寫入失敗（例如無痕模式配額限制）
+    let active = true;
+
+    async function init() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!active) return;
+
+      if (user) {
+        setUserId(user.id);
+        await loadAll(user.id);
+      }
+      setHydrated(true);
     }
-  }, [state, hydrated]);
 
-  const login = useCallback((nickname: string) => {
-    setState((s) => ({ ...s, nickname }));
-  }, []);
+    init();
 
-  const logout = useCallback(() => {
-    setState((s) => ({ ...defaultState(), rewardsStock: s.rewardsStock }));
-  }, []);
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUserId(session.user.id);
+        loadAll(session.user.id);
+      } else {
+        resetToLoggedOut();
+      }
+    });
+
+    return () => {
+      active = false;
+      subscription.subscription.unsubscribe();
+    };
+  }, [supabase, loadAll, resetToLoggedOut]);
+
+  const login = useCallback(
+    async (email: string): Promise<{ success: boolean; error?: string }> => {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      });
+      if (error) return { success: false, error: error.message };
+      return { success: true };
+    },
+    [supabase]
+  );
+
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut();
+    resetToLoggedOut();
+  }, [supabase, resetToLoggedOut]);
+
+  const completeOnboarding = useCallback(
+    async (displayName: string) => {
+      if (!userId) throw new Error("not authenticated");
+      const { error } = await supabase
+        .from("profiles")
+        .update({ display_name: displayName })
+        .eq("id", userId);
+      if (error) throw new Error(error.message);
+      setProfile((p) => ({ ...p, displayName }));
+    },
+    [supabase, userId]
+  );
 
   const completeRide = useCallback(
-    (distanceKm: number, startStation: string, endStation: string) => {
-      let result: CompleteRideResult = {
-        distanceKm,
-        carbonSavedKg: 0,
-        earnedPoints: 0,
-        leveledUp: false,
-        newLevelName: null,
-        newAchievements: [],
-      };
+    async (distanceKm: number, startStation: string, endStation: string): Promise<CompleteRideResult> => {
+      const { data, error } = await supabase.rpc("complete_ride", {
+        p_start_station: startStation,
+        p_end_station: endStation,
+        p_distance_km: distanceKm,
+      });
+      if (error || !data) {
+        throw new Error(error?.message ?? "complete_ride 失敗");
+      }
+      const result = data as unknown as CompleteRideResult;
 
-      setState((s) => {
-        const carbonSavedKg = calcCarbonSavedKg(distanceKm);
-        const earnedPoints = Math.floor(distanceKm); // 1 公里 = 1 環保點數
-        const newTotalDistance = s.totalDistanceKm + distanceKm;
-        const newTotalCarbon = s.carbonSavedKg + carbonSavedKg; // 只增不減：唯一寫入點
-        const newRideCount = s.rideCount + 1;
-        const newVisitedStations = Array.from(
-          new Set([...s.visitedStations, startStation, endStation])
-        );
-
-        const oldLevel = getLevelByDistance(s.totalDistanceKm);
-        const newLevel = getLevelByDistance(newTotalDistance);
-        const leveledUp = newLevel.id !== oldLevel.id;
-
-        const newlyUnlocked: AchievementCode[] = [];
-        const has = (code: AchievementCode) =>
-          s.unlockedAchievements.includes(code);
-
-        if (!has("first_ride") && newRideCount >= 1) newlyUnlocked.push("first_ride");
-        if (!has("distance_30") && newTotalDistance >= 30) newlyUnlocked.push("distance_30");
-        if (!has("carbon_1kg") && newTotalCarbon >= 1) newlyUnlocked.push("carbon_1kg");
-        if (!has("all_stations") && newVisitedStations.length >= STATIONS.length) {
-          newlyUnlocked.push("all_stations");
-        }
-
-        const rideRecord: RideRecord = {
-          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      setProfile((p) => ({
+        ...p,
+        totalDistanceKm: p.totalDistanceKm + result.distanceKm,
+        carbonSavedKg: p.carbonSavedKg + result.carbonSavedKg,
+        pointsBalance: p.pointsBalance + result.earnedPoints,
+        rideCount: p.rideCount + 1,
+      }));
+      setRides((prev) => [
+        {
+          id: `optimistic-${Date.now()}`,
           timestamp: new Date().toISOString(),
           startStation,
           endStation,
-          distanceKm,
-          carbonSavedKg,
-          earnedPoints,
-        };
-
-        result = {
-          distanceKm,
-          carbonSavedKg,
-          earnedPoints,
-          leveledUp,
-          newLevelName: leveledUp ? newLevel.name : null,
-          newAchievements: newlyUnlocked,
-        };
-
-        return {
-          ...s,
-          totalDistanceKm: newTotalDistance,
-          carbonSavedKg: newTotalCarbon,
-          points: s.points + earnedPoints,
-          rideCount: newRideCount,
-          unlockedAchievements: [...s.unlockedAchievements, ...newlyUnlocked],
-          visitedStations: newVisitedStations,
-          rides: [rideRecord, ...s.rides],
-        };
-      });
+          distanceKm: result.distanceKm,
+          carbonSavedKg: result.carbonSavedKg,
+          earnedPoints: result.earnedPoints,
+        },
+        ...prev,
+      ]);
+      if (result.newAchievements.length > 0) {
+        setUnlockedAchievements((prev) => [...prev, ...result.newAchievements]);
+      }
 
       return result;
     },
-    []
+    [supabase]
   );
 
-  const redeemReward = useCallback((rewardId: string): RedeemResult => {
-    const reward = REWARDS.find((r) => r.id === rewardId);
-    if (!reward) return { success: false, reason: "out_of_stock" };
-
-    let result: RedeemResult = { success: false, reason: "out_of_stock" };
-
-    setState((s) => {
-      const stock = s.rewardsStock[rewardId] ?? 0;
-      if (stock <= 0) {
-        result = { success: false, reason: "out_of_stock" };
-        return s;
+  const redeemReward = useCallback(
+    async (rewardId: string): Promise<RedeemResult> => {
+      const { data, error } = await supabase.rpc("redeem_reward", { p_reward_id: rewardId });
+      if (error || !data) {
+        throw new Error(error?.message ?? "redeem_reward 失敗");
       }
-      if (s.points < reward.cost) {
-        result = { success: false, reason: "insufficient_points" };
-        return s;
-      }
+      const result = data as unknown as RedeemResult;
 
-      const code = generateCode();
-      const record: RedemptionRecord = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        rewardId,
-        rewardName: reward.name,
-        code,
-        pointsSpent: reward.cost,
-        redeemedAt: new Date().toISOString(),
-      };
-
-      const newlyUnlocked: AchievementCode[] = [];
-      if (!s.unlockedAchievements.includes("redeemed_once")) {
-        newlyUnlocked.push("redeemed_once");
-      }
-
-      result = { success: true, code, newAchievements: newlyUnlocked };
-
-      return {
-        ...s,
-        points: s.points - reward.cost,
-        rewardsStock: { ...s.rewardsStock, [rewardId]: stock - 1 },
-        redemptions: [record, ...s.redemptions],
-        unlockedAchievements: [...s.unlockedAchievements, ...newlyUnlocked],
-      };
-    });
-
-    return result;
-  }, []);
-
-  const drawLottery = useCallback((): DrawLotteryResult => {
-    let result: DrawLotteryResult = { success: false, reason: "insufficient_points" };
-
-    setState((s) => {
-      if (s.points < LOTTERY_COST_POINTS) {
-        result = { success: false, reason: "insufficient_points" };
-        return s;
-      }
-
-      const roll = Math.random();
-      let cumulative = 0;
-      let tier: LotteryTier = "none";
-      for (const t of LOTTERY_TIERS) {
-        cumulative += t.probability;
-        if (roll < cumulative) {
-          tier = t.tier;
-          break;
-        }
-      }
-
-      const tierDef = LOTTERY_TIERS.find((t) => t.tier === tier)!;
-      let stockOut = false;
-      let prizeName: string | null = null;
-      let code: string | null = null;
-      let newRewardsStock = s.rewardsStock;
-      let newRedemptions = s.redemptions;
-      const newlyUnlocked: AchievementCode[] = [];
-
-      if (tierDef.rewardId) {
-        const reward = REWARDS.find((r) => r.id === tierDef.rewardId)!;
-        const stock = s.rewardsStock[reward.id] ?? 0;
-        if (stock <= 0) {
-          stockOut = true;
-        } else {
-          prizeName = reward.name;
-          code = generateCode();
-          const record: RedemptionRecord = {
-            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            rewardId: reward.id,
-            rewardName: reward.name,
-            code,
-            pointsSpent: LOTTERY_COST_POINTS,
+      if (result.success) {
+        const reward = rewards.find((r) => r.id === rewardId);
+        setProfile((p) => ({ ...p, pointsBalance: p.pointsBalance - (reward?.cost ?? 0) }));
+        setRewards((prev) =>
+          prev.map((r) => (r.id === rewardId ? { ...r, stock: Math.max(0, r.stock - 1) } : r))
+        );
+        setRedemptions((prev) => [
+          {
+            id: `optimistic-${Date.now()}`,
+            rewardId,
+            rewardName: reward?.name ?? rewardId,
+            code: result.code,
+            pointsSpent: reward?.cost ?? 0,
             redeemedAt: new Date().toISOString(),
-          };
-          newRewardsStock = { ...s.rewardsStock, [reward.id]: stock - 1 };
-          newRedemptions = [record, ...s.redemptions];
-          if (!s.unlockedAchievements.includes("redeemed_once")) {
-            newlyUnlocked.push("redeemed_once");
-          }
+          },
+          ...prev,
+        ]);
+        if (result.newAchievements.length > 0) {
+          setUnlockedAchievements((prev) => [...prev, ...result.newAchievements]);
         }
       }
 
-      result = {
-        success: true,
-        tier: stockOut ? "none" : tier,
-        stockOut,
-        prizeName,
-        code,
-        newAchievements: newlyUnlocked,
-      };
+      return result;
+    },
+    [supabase, rewards]
+  );
 
-      return {
-        ...s,
-        points: s.points - LOTTERY_COST_POINTS,
-        rewardsStock: newRewardsStock,
-        redemptions: newRedemptions,
-        unlockedAchievements: [...s.unlockedAchievements, ...newlyUnlocked],
-      };
-    });
+  const drawLottery = useCallback(async (): Promise<DrawLotteryResult> => {
+    const { data, error } = await supabase.rpc("draw_lottery");
+    if (error || !data) {
+      throw new Error(error?.message ?? "draw_lottery 失敗");
+    }
+    const result = data as unknown as DrawLotteryResult;
+
+    if (result.success) {
+      setProfile((p) => ({ ...p, pointsBalance: p.pointsBalance - LOTTERY_COST_POINTS }));
+
+      if (!result.stockOut && result.code) {
+        const tierRewardId = LOTTERY_TIERS.find((t) => t.tier === result.tier)?.rewardId ?? null;
+        if (tierRewardId) {
+          setRewards((prev) =>
+            prev.map((r) => (r.id === tierRewardId ? { ...r, stock: Math.max(0, r.stock - 1) } : r))
+          );
+          setRedemptions((prev) => [
+            {
+              id: `optimistic-${Date.now()}`,
+              rewardId: tierRewardId,
+              rewardName: result.prizeName ?? tierRewardId,
+              code: result.code as string,
+              pointsSpent: LOTTERY_COST_POINTS,
+              redeemedAt: new Date().toISOString(),
+            },
+            ...prev,
+          ]);
+        }
+      }
+
+      if (result.newAchievements.length > 0) {
+        setUnlockedAchievements((prev) => [...prev, ...result.newAchievements]);
+      }
+    }
 
     return result;
-  }, []);
+  }, [supabase]);
+
+  const visitedStations = useMemo(
+    () => Array.from(new Set(rides.flatMap((r) => [r.startStation, r.endStation]))),
+    [rides]
+  );
+
+  const rewardsStock = useMemo(
+    () => Object.fromEntries(rewards.map((r) => [r.id, r.stock])),
+    [rewards]
+  );
 
   const value: AppContextValue = {
-    ...state,
     hydrated,
+    loggedIn: userId !== null,
+    nickname: profile.displayName,
+    totalDistanceKm: profile.totalDistanceKm,
+    carbonSavedKg: profile.carbonSavedKg,
+    points: profile.pointsBalance,
+    rideCount: profile.rideCount,
+    unlockedAchievements,
+    rewards,
+    rewardsStock,
+    redemptions,
+    visitedStations,
+    rides,
     login,
     logout,
+    completeOnboarding,
     completeRide,
     redeemReward,
     drawLottery,
@@ -384,5 +459,3 @@ export function useApp() {
   if (!ctx) throw new Error("useApp must be used within AppProvider");
   return ctx;
 }
-
-export { ACHIEVEMENTS };

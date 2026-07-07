@@ -1,25 +1,30 @@
-"use client";
-
-import { STATIONS } from "@/lib/constants";
-import { useApp } from "@/lib/context/AppContext";
+import { createClient } from "@/utils/supabase/server";
 
 const CARBON_CREDIT_PRICE_PER_TONNE = 3000; // NT$/公噸，僅示意用台灣碳權交易平台現行行情
 
-export default function GovDashboardPage() {
-  const { totalDistanceKm, carbonSavedKg, rides } = useApp();
+type GlobalStats = {
+  rideCount: number;
+  totalDistanceKm: number;
+  totalCarbonKg: number;
+  stationCounts: { station: string; count: number }[];
+};
 
+export default async function GovDashboardPage() {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("get_global_stats");
+  const stats: GlobalStats = (data as unknown as GlobalStats) ?? {
+    rideCount: 0,
+    totalDistanceKm: 0,
+    totalCarbonKg: 0,
+    stationCounts: [],
+  };
+
+  const rideCount = stats.rideCount;
+  const totalDistanceKm = Number(stats.totalDistanceKm);
+  const carbonSavedKg = Number(stats.totalCarbonKg);
   const carbonSavedTonnes = carbonSavedKg / 1000;
   const theoreticalValueNT = Math.round(carbonSavedTonnes * CARBON_CREDIT_PRICE_PER_TONNE);
-
-  const stationCounts = new Map<string, number>();
-  for (const s of STATIONS) stationCounts.set(s, 0);
-  for (const r of rides) {
-    stationCounts.set(r.startStation, (stationCounts.get(r.startStation) ?? 0) + 1);
-    stationCounts.set(r.endStation, (stationCounts.get(r.endStation) ?? 0) + 1);
-  }
-  const ranked = STATIONS.map((s) => ({ station: s, count: stationCounts.get(s) ?? 0 })).sort(
-    (a, b) => b.count - a.count
-  );
+  const ranked = stats.stationCounts;
   const maxCount = Math.max(1, ...ranked.map((r) => r.count));
 
   return (
@@ -35,7 +40,7 @@ export default function GovDashboardPage() {
         <div className="grid grid-cols-2 gap-4">
           <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
             <p className="text-xs text-slate-400">累積騎乘人次</p>
-            <p className="mt-1 text-2xl font-bold text-slate-800">{rides.length} 次</p>
+            <p className="mt-1 text-2xl font-bold text-slate-800">{rideCount} 次</p>
           </div>
           <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
             <p className="text-xs text-slate-400">累積里程</p>

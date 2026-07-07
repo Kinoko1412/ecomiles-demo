@@ -1,25 +1,26 @@
-"use client";
-
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useApp } from "@/lib/context/AppContext";
+import { redirect } from "next/navigation";
+import { createClient } from "@/utils/supabase/server";
 import BottomNav from "@/components/BottomNav";
 
-export default function ShellLayout({
+export default async function ShellLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { nickname, hydrated } = useApp();
-  const router = useRouter();
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  useEffect(() => {
-    if (hydrated && !nickname) router.replace("/login");
-  }, [hydrated, nickname, router]);
+  if (!user) redirect("/login");
 
-  if (!hydrated || !nickname) {
-    return <div className="flex min-h-screen items-center justify-center text-slate-400">載入中…</div>;
-  }
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("display_name")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!profile?.display_name) redirect("/onboarding");
 
   return (
     <div className="flex min-h-screen flex-col bg-[radial-gradient(circle_at_top,_#ecfdf5,_#f0faf5_60%)]">

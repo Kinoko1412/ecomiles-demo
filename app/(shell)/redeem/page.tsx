@@ -1,33 +1,37 @@
 "use client";
 
 import { useState } from "react";
-import { REWARDS } from "@/lib/constants";
-import { useApp } from "@/lib/context/AppContext";
+import { useApp, type RewardWithStock } from "@/lib/context/AppContext";
 import Modal from "@/components/Modal";
 import RedeemTabs from "@/components/RedeemTabs";
 
 export default function RedeemPage() {
-  const { points, rewardsStock, redeemReward } = useApp();
+  const { points, rewards, rewardsStock, redeemReward } = useApp();
   const [redeemedCode, setRedeemedCode] = useState<string | null>(null);
   const [redeemedName, setRedeemedName] = useState<string | null>(null);
   const [errorReward, setErrorReward] = useState<string | null>(null);
 
-  function handleRedeem(rewardId: string, rewardName: string) {
-    const r = redeemReward(rewardId);
-    if (r.success) {
-      setRedeemedName(rewardName);
-      setRedeemedCode(r.code);
-      setErrorReward(null);
-    } else {
+  async function handleRedeem(rewardId: string, rewardName: string) {
+    try {
+      const r = await redeemReward(rewardId);
+      if (r.success) {
+        setRedeemedName(rewardName);
+        setRedeemedCode(r.code);
+        setErrorReward(null);
+      } else {
+        setErrorReward(rewardId);
+        setTimeout(() => setErrorReward(null), 1500);
+      }
+    } catch {
       setErrorReward(rewardId);
       setTimeout(() => setErrorReward(null), 1500);
     }
   }
 
-  const sustainableRewards = REWARDS.filter((r) => !r.lotteryOnly && r.id !== "r6");
-  const storeRewards = REWARDS.filter((r) => r.id === "r6");
+  const sustainableRewards = rewards.filter((r) => !r.lotteryOnly && r.id !== "r6");
+  const storeRewards = rewards.filter((r) => r.id === "r6");
 
-  function renderCard(reward: (typeof REWARDS)[number]) {
+  function renderCard(reward: RewardWithStock) {
     const stock = rewardsStock[reward.id] ?? 0;
     const soldOut = stock <= 0;
     const insufficientPoints = points < reward.cost;

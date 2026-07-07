@@ -20,8 +20,8 @@ export default function ProfilePage() {
   } = useApp();
   const level = getLevelByDistance(totalDistanceKm);
 
-  function handleLogout() {
-    logout();
+  async function handleLogout() {
+    await logout();
     router.push("/login");
   }
 
