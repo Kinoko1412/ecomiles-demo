@@ -38,6 +38,11 @@ function formatTime(totalSeconds: number) {
   return `${m}:${s}`;
 }
 
+function formatDistanceLabel(distanceM: number) {
+  if (distanceM >= 1000) return `${(distanceM / 1000).toFixed(1)} km`;
+  return `${Math.round(distanceM)} 公尺`;
+}
+
 export default function HomePage() {
   const { nickname, totalDistanceKm, carbonSavedKg, points, completeRide } = useApp();
   const level = getLevelByDistance(totalDistanceKm);
@@ -57,6 +62,11 @@ export default function HomePage() {
   const [routeCoords, setRouteCoords] = useState<LatLng[] | null | undefined>(undefined);
   // 這趟路線是不是套用了精度較低的山線官方路廊資料，只影響地圖上的線條樣式，不影響邏輯判斷
   const [isLowConfidenceRoute, setIsLowConfidenceRoute] = useState(false);
+  // 目前位置最近的「還沒抵達」加分站，給沉浸式導航頂部卡片顯示用；跟 allHighlightsVisited
+  // 一起在下面的抵達判定 effect 裡算，不要在 render 階段直接讀 visitedHighlightIdsRef.current
+  // （React 的 refs 規則不允許在 render 裡讀 ref 值）。
+  const [nextHighlight, setNextHighlight] = useState<{ name: string; distanceM: number } | null>(null);
+  const [allHighlightsVisited, setAllHighlightsVisited] = useState(false);
 
   const watchIdRef = useRef<number | null>(null);
   const simulateTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -145,21 +155,46 @@ export default function HomePage() {
   }, [phase, simulating]);
 
   // 加分站點抵達判定：不論座標是真實 GPS 還是快速模擬內插出來的，統一在這裡用 Haversine 比對，
-  // 進入 80 公尺內視為抵達，同一趟騎乘每個加分站點只觸發一次。
+  // 進入 80 公尺內視為抵達，同一趟騎乘每個加分站點只觸發一次。同一個 effect 裡順便重新算一次
+  // 「下一個加分站」存進 state，給頂部卡片顯示用（不能直接在 render 時讀 visitedHighlightIdsRef.current）。
   useEffect(() => {
-    if (phase !== "riding" || !coords || highlights.length === 0) return;
-    for (const h of highlights) {
-      if (visitedHighlightIdsRef.current.has(h.id)) continue;
-      const dist = haversineDistanceMeters(coords, { lat: h.lat, lng: h.lng });
-      if (dist <= ARRIVAL_RADIUS_M) {
-        visitedHighlightIdsRef.current.add(h.id);
-        // coords 來自 GPS watchPosition／模擬內插的外部狀態變化，這裡是對該變化的反應，
-        // 不是重複觸發的連鎖 setState。
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setArrivalToast({ id: h.id, name: h.name });
-        break;
+    if (phase !== "riding" || highlights.length === 0) {
+      // coords/highlights/phase 是外部狀態變化，這裡是對變化的反應，不是連鎖 setState。
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setNextHighlight(null);
+      setAllHighlightsVisited(false);
+      return;
+    }
+
+    if (coords) {
+      for (const h of highlights) {
+        if (visitedHighlightIdsRef.current.has(h.id)) continue;
+        const dist = haversineDistanceMeters(coords, { lat: h.lat, lng: h.lng });
+        if (dist <= ARRIVAL_RADIUS_M) {
+          visitedHighlightIdsRef.current.add(h.id);
+          setArrivalToast({ id: h.id, name: h.name });
+          break;
+        }
       }
     }
+
+    const unvisited = highlights.filter((h) => !visitedHighlightIdsRef.current.has(h.id));
+    if (unvisited.length === 0) {
+      setNextHighlight(null);
+      setAllHighlightsVisited(true);
+      return;
+    }
+    setAllHighlightsVisited(false);
+    if (!coords) {
+      setNextHighlight(null);
+      return;
+    }
+    let closest: { name: string; distanceM: number } | null = null;
+    for (const h of unvisited) {
+      const distanceM = haversineDistanceMeters(coords, { lat: h.lat, lng: h.lng });
+      if (!closest || distanceM < closest.distanceM) closest = { name: h.name, distanceM };
+    }
+    setNextHighlight(closest);
   }, [coords, highlights, phase]);
 
   useEffect(() => {
@@ -350,22 +385,31 @@ export default function HomePage() {
             />
           </div>
 
-          {/* 頂部：左上角即時時速徽章 + 本次里程資訊列 */}
+          {/* 頂部：左邊深色卡片顯示下一個加分站距離、右上角深色卡片顯示即時時速 */}
           <div
             className="absolute inset-x-0 top-0 z-10 flex items-center gap-3 px-4"
             style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}
           >
-            <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-full bg-white/95 shadow-lg ring-1 ring-black/5">
-              <span className="text-lg font-extrabold leading-none text-slate-800">
+            <div className="flex flex-1 items-center gap-2 rounded-full bg-slate-900/90 px-4 py-2.5 shadow-lg ring-1 ring-white/10 backdrop-blur">
+              <span className="text-lg">🎯</span>
+              {nextHighlight ? (
+                <span className="truncate text-sm font-medium text-slate-100">
+                  下一站 {nextHighlight.name}｜約 {formatDistanceLabel(nextHighlight.distanceM)}
+                </span>
+              ) : highlights.length === 0 ? (
+                <span className="text-sm text-slate-400">這趟沒有加分站點</span>
+              ) : allHighlightsVisited ? (
+                <span className="text-sm font-medium text-emerald-400">加分站點已全部抵達 🎉</span>
+              ) : (
+                <span className="text-sm text-slate-400">定位中…</span>
+              )}
+            </div>
+            <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-full bg-slate-900/90 shadow-lg ring-1 ring-white/10 backdrop-blur">
+              <span className="text-lg font-extrabold leading-none text-white">
                 {speedKmh.toFixed(0)}
               </span>
               <span className="mt-0.5 text-[9px] text-slate-400">km/h</span>
-            </div>
-            <div className="flex flex-1 items-center justify-between rounded-full bg-white/95 px-4 py-2.5 shadow-md ring-1 ring-black/5">
-              <span className="text-sm font-semibold text-emerald-600">
-                本次里程 {liveDistanceKm.toFixed(2)} km
-              </span>
-              <span className="font-mono text-xs text-slate-400">{formatTime(elapsedSeconds)}</span>
+              <span className="mt-0.5 font-mono text-[9px] text-slate-500">{formatTime(elapsedSeconds)}</span>
             </div>
           </div>
 
@@ -377,33 +421,38 @@ export default function HomePage() {
             <button
               onClick={handleQuickSimulate}
               disabled={simulating}
-              className="w-full rounded-full border-2 border-dashed border-amber-400 bg-amber-50/95 py-3 text-sm font-semibold text-amber-600 shadow-md transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full rounded-full border-2 border-dashed border-amber-400/70 bg-slate-900/90 py-3 text-sm font-semibold text-amber-400 shadow-lg backdrop-blur transition-colors hover:bg-slate-800/90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {simulating ? "模擬中…" : "快速模擬（demo 用）"}
             </button>
           </div>
 
-          {/* 底部：累積點數／節省碳量資訊列 + 結束騎乘按鈕 */}
+          {/* 底部：里程／點數／減碳三欄深色卡片 + 結束騎乘按鈕 */}
           <div
             className="absolute inset-x-0 bottom-0 z-10 flex items-center gap-3 px-4"
             style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 16px)" }}
           >
-            <div className="flex flex-1 items-center justify-around rounded-full bg-white/95 px-4 py-3 shadow-md ring-1 ring-black/5">
+            <div className="flex flex-1 items-center justify-around rounded-full bg-slate-900/90 px-4 py-3 shadow-lg ring-1 ring-white/10 backdrop-blur">
+              <div className="text-center">
+                <p className="text-[10px] text-slate-400">本次里程</p>
+                <p className="text-sm font-bold text-white">{liveDistanceKm.toFixed(2)} km</p>
+              </div>
+              <div className="h-6 w-px bg-white/10" />
               <div className="text-center">
                 <p className="text-[10px] text-slate-400">累積點數</p>
-                <p className="text-sm font-bold text-slate-800">{points} 點</p>
+                <p className="text-sm font-bold text-white">{points} 點</p>
               </div>
-              <div className="h-6 w-px bg-slate-200" />
+              <div className="h-6 w-px bg-white/10" />
               <div className="text-center">
                 <p className="text-[10px] text-slate-400">節省碳量</p>
-                <p className="text-sm font-bold text-slate-800">{displayCarbonKg.toFixed(3)} kg</p>
+                <p className="text-sm font-bold text-emerald-400">{displayCarbonKg.toFixed(3)} kg</p>
               </div>
             </div>
             <button
               onClick={handleEndRide}
               disabled={simulating}
               aria-label="結束騎乘"
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-900 text-lg font-bold text-white shadow-md transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-900/90 text-lg font-bold text-white shadow-lg ring-1 ring-white/10 backdrop-blur transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               ✕
             </button>
