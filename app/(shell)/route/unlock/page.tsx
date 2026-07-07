@@ -1,10 +1,13 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { calcCarbonSavedKg } from "@/lib/carbon";
 import { THEME_ROUTES } from "@/lib/themeRoutes";
 import CarbonMilestoneChart from "@/components/CarbonMilestoneChart";
 import SubscriptionTierCards from "@/components/SubscriptionTierCards";
+import SingleRouteUnlockCard from "@/components/SingleRouteUnlockCard";
 
 const PERKS = [
   { icon: "🗺️", title: "更多客製化行程", desc: "解鎖精選主題路線的完整站點與延伸玩法" },
@@ -12,8 +15,10 @@ const PERKS = [
   { icon: "🎁", title: "特約商家好禮", desc: "沿線店家折扣與限定小禮，持續更新" },
 ];
 
-export default function UnlockPage() {
-  const totalCarbonKg = calcCarbonSavedKg(THEME_ROUTES[0].totalDistanceKm);
+function UnlockPageContent() {
+  const routeId = useSearchParams().get("routeId");
+  const route = THEME_ROUTES.find((r) => r.id === routeId) ?? THEME_ROUTES[0];
+  const totalCarbonKg = calcCarbonSavedKg(route.totalDistanceKm);
 
   return (
     <div className="min-h-screen bg-slate-900 px-6 pt-10 text-white">
@@ -52,7 +57,11 @@ export default function UnlockPage() {
         <CarbonMilestoneChart totalCarbonKg={totalCarbonKg} />
       </div>
 
-      <div className="mx-auto mt-6 max-w-md">
+      <div className="mx-auto mt-3 max-w-md">
+        <SingleRouteUnlockCard route={route} />
+      </div>
+
+      <div className="mx-auto mt-3 max-w-md">
         <SubscriptionTierCards />
       </div>
 
@@ -60,5 +69,13 @@ export default function UnlockPage() {
         <p className="text-center text-[11px] text-slate-500">此畫面為 demo 展示，尚未串接金流</p>
       </div>
     </div>
+  );
+}
+
+export default function UnlockPage() {
+  return (
+    <Suspense fallback={null}>
+      <UnlockPageContent />
+    </Suspense>
   );
 }

@@ -33,6 +33,9 @@ export const THEME_ROUTES: ThemeRoute[] = [
   },
 ];
 
+/** 單一遊程解鎖價（每條路線都適用同一個嚐鮮價） */
+export const SINGLE_ROUTE_UNLOCK_PRICE_NT = 99;
+
 /** Google Maps 多站導航連結：用站名組成 /dir/ 路徑，瀏覽器端自動 geocode，不需要 Maps API key */
 export function buildGoogleMapsDirUrl(route: ThemeRoute): string {
   const segments = route.stops.map((s) => encodeURIComponent(s.name));

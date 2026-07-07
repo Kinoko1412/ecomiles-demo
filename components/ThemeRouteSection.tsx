@@ -104,7 +104,7 @@ export default function ThemeRouteSection() {
                         </div>
                         <div className="absolute inset-0 flex items-center justify-center">
                           <Link
-                            href="/route/unlock"
+                            href={`/route/unlock?routeId=${route.id}`}
                             className="inline-flex items-center gap-1.5 rounded-full bg-slate-900/90 px-4 py-2 text-xs font-semibold text-white shadow-md transition-colors hover:bg-slate-900"
                           >
                             🔒 更多內容
