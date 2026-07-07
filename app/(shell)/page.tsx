@@ -1,13 +1,29 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { STATIONS, ACHIEVEMENTS } from "@/lib/constants";
 import { useApp, type CompleteRideResult } from "@/lib/context/AppContext";
 import { getLevelByDistance } from "@/lib/levels";
 import { calcCarbonSavedKg } from "@/lib/carbon";
+import { haversineDistanceMeters, interpolateLatLng, type LatLng } from "@/lib/distance";
+import { getRideHighlights, getStationCoords } from "@/lib/stationHighlights";
 import Modal from "@/components/Modal";
 
-type Phase = "idle" | "riding" | "select-end";
+// mapbox-gl 在模組頂層就會摸 window/document，SSR 階段的 Node 環境沒有這些東西，
+// 一定要用 next/dynamic + ssr:false 讓它只在瀏覽器端載入。
+const RideMap = dynamic(() => import("@/components/map/RideMapInner"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full w-full items-center justify-center bg-slate-100 text-sm text-slate-400">
+      地圖載入中…
+    </div>
+  ),
+});
+
+type Phase = "idle" | "riding";
+
+const ARRIVAL_RADIUS_M = 80;
 
 function formatTime(totalSeconds: number) {
   const m = Math.floor(totalSeconds / 60)
@@ -26,12 +42,20 @@ export default function HomePage() {
   const [endStation, setEndStation] = useState("");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [liveDistanceKm, setLiveDistanceKm] = useState(0);
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [coords, setCoords] = useState<LatLng | null>(null);
   const [simulating, setSimulating] = useState(false);
   const [settleResult, setSettleResult] = useState<CompleteRideResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [arrivalToast, setArrivalToast] = useState<{ id: string; name: string } | null>(null);
 
   const watchIdRef = useRef<number | null>(null);
+  const simulateTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const visitedHighlightIdsRef = useRef<Set<string>>(new Set());
+
+  const highlights = useMemo(
+    () => (startStation && endStation ? getRideHighlights(startStation, endStation) : []),
+    [startStation, endStation]
+  );
 
   // 計時器：只在騎乘中累加秒數
   useEffect(() => {
@@ -42,16 +66,16 @@ export default function HomePage() {
 
   // 即時里程：騎乘中每 0.5 秒累加一小段距離，讓畫面上的里程/減碳量持續跳動，模擬真實騎行
   useEffect(() => {
-    if (phase !== "riding") return;
+    if (phase !== "riding" || simulating) return;
     const tick = setInterval(() => {
       setLiveDistanceKm((d) => d + (0.03 + Math.random() * 0.09));
     }, 500);
     return () => clearInterval(tick);
-  }, [phase]);
+  }, [phase, simulating]);
 
-  // GPS：能拿到就顯示，拿不到權限就安靜降級，不影響 demo 流程
+  // GPS：能拿到就顯示並拿來比對加分站點距離，拿不到權限就安靜降級，不影響 demo 流程
   useEffect(() => {
-    if (phase !== "riding" || typeof navigator === "undefined" || !navigator.geolocation) {
+    if (phase !== "riding" || simulating || typeof navigator === "undefined" || !navigator.geolocation) {
       return;
     }
     try {
@@ -71,12 +95,42 @@ export default function HomePage() {
         watchIdRef.current = null;
       }
     };
-  }, [phase]);
+  }, [phase, simulating]);
 
-  async function finalizeRide(distanceKm: number, finalEndStation: string) {
+  // 加分站點抵達判定：不論座標是真實 GPS 還是快速模擬內插出來的，統一在這裡用 Haversine 比對，
+  // 進入 80 公尺內視為抵達，同一趟騎乘每個加分站點只觸發一次。
+  useEffect(() => {
+    if (phase !== "riding" || !coords || highlights.length === 0) return;
+    for (const h of highlights) {
+      if (visitedHighlightIdsRef.current.has(h.id)) continue;
+      const dist = haversineDistanceMeters(coords, { lat: h.lat, lng: h.lng });
+      if (dist <= ARRIVAL_RADIUS_M) {
+        visitedHighlightIdsRef.current.add(h.id);
+        // coords 來自 GPS watchPosition／模擬內插的外部狀態變化，這裡是對該變化的反應，
+        // 不是重複觸發的連鎖 setState。
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setArrivalToast({ id: h.id, name: h.name });
+        break;
+      }
+    }
+  }, [coords, highlights, phase]);
+
+  useEffect(() => {
+    if (!arrivalToast) return;
+    const t = setTimeout(() => setArrivalToast(null), 2600);
+    return () => clearTimeout(t);
+  }, [arrivalToast]);
+
+  useEffect(() => {
+    return () => {
+      if (simulateTimerRef.current) clearInterval(simulateTimerRef.current);
+    };
+  }, []);
+
+  async function finalizeRide(distanceKm: number) {
     setErrorMsg(null);
     try {
-      const r = await completeRide(distanceKm, startStation, finalEndStation);
+      const r = await completeRide(distanceKm, startStation, endStation);
       setSettleResult(r);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "騎乘結算失敗，請稍後再試");
@@ -91,7 +145,8 @@ export default function HomePage() {
   }
 
   function handleGoClick() {
-    if (!startStation) return;
+    if (!startStation || !endStation) return;
+    visitedHighlightIdsRef.current = new Set();
     setElapsedSeconds(0);
     setCoords(null);
     setLiveDistanceKm(0);
@@ -99,96 +154,113 @@ export default function HomePage() {
   }
 
   function handleEndRide() {
-    setPhase("select-end");
-  }
-
-  function handleConfirmEnd() {
     const distance = Math.max(0.1, Number(liveDistanceKm.toFixed(2)));
-    finalizeRide(distance, endStation);
+    finalizeRide(distance);
   }
 
   function handleQuickSimulate() {
+    const startCoords = getStationCoords(startStation);
+    const endCoords = getStationCoords(endStation);
+    if (!startCoords || !endCoords) return;
+
     setSimulating(true);
-    setTimeout(() => {
-      const distance = Number((2 + Math.random() * 6).toFixed(1));
-      const candidates = STATIONS.filter((s) => s !== startStation);
-      const randomEnd = candidates[Math.floor(Math.random() * candidates.length)];
-      setEndStation(randomEnd);
-      setSimulating(false);
-      finalizeRide(distance, randomEnd);
-    }, 3000);
+    const steps = 15;
+    let step = 0;
+    simulateTimerRef.current = setInterval(() => {
+      step += 1;
+      setCoords(interpolateLatLng(startCoords, endCoords, step / steps));
+      if (step >= steps) {
+        if (simulateTimerRef.current) clearInterval(simulateTimerRef.current);
+        simulateTimerRef.current = null;
+        const distance = Number((2 + Math.random() * 6).toFixed(1));
+        setSimulating(false);
+        finalizeRide(distance);
+      }
+    }, 200);
   }
 
-  const goDisabled = phase === "idle" && !startStation;
-  const isOnRide = phase === "riding" || phase === "select-end";
-  const displayDistanceKm = totalDistanceKm + (isOnRide ? liveDistanceKm : 0);
-  const displayCarbonKg = carbonSavedKg + (isOnRide ? calcCarbonSavedKg(liveDistanceKm) : 0);
+  const goDisabled = !startStation || !endStation || startStation === endStation;
+  const displayDistanceKm = totalDistanceKm + (phase === "riding" ? liveDistanceKm : 0);
+  const displayCarbonKg = carbonSavedKg + (phase === "riding" ? calcCarbonSavedKg(liveDistanceKm) : 0);
 
   return (
     <div className="mx-auto flex max-w-md flex-col items-center px-6 pt-10">
+      {arrivalToast && (
+        <div className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-6">
+          <div
+            className="rounded-full bg-emerald-500 px-5 py-2.5 text-center text-sm font-semibold text-white shadow-lg"
+            style={{ animation: "toast-pop 2.6s ease-in-out" }}
+          >
+            🌟 抵達{arrivalToast.name}！+10 分
+          </div>
+        </div>
+      )}
+
       <h1 className="text-3xl font-extrabold tracking-tight text-emerald-700">Ecomiles</h1>
       <p className="mt-1 text-sm text-slate-500">嗨，{nickname} 👋 準備好騎一趟了嗎？</p>
       {errorMsg && (
         <p className="mt-2 rounded-xl bg-red-50 px-3 py-1.5 text-xs text-red-500">{errorMsg}</p>
       )}
 
-      <button
-        onClick={handleGoClick}
-        disabled={phase !== "idle" || goDisabled}
-        className="group relative my-8 flex h-48 w-48 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-sky-500 text-3xl font-extrabold text-white shadow-xl transition-transform active:scale-95 disabled:cursor-default disabled:active:scale-100"
-        style={{
-          animation:
-            phase === "idle" && !goDisabled
-              ? "pulse-ring 2.2s cubic-bezier(0.4,0,0.6,1) infinite"
-              : undefined,
-          opacity: goDisabled ? 0.5 : 1,
-        }}
-      >
-        {phase === "idle" ? (
-          <span className="flex flex-col items-center gap-1">
-            <span className="text-4xl">🚴</span>
-            GO
-          </span>
-        ) : (
-          <span className="font-mono text-4xl">{formatTime(elapsedSeconds)}</span>
-        )}
-      </button>
-
       {phase === "idle" && (
-        <div className="w-full">
-          <select
-            value={startStation}
-            onChange={(e) => setStartStation(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base outline-none focus:border-emerald-400"
+        <>
+          <button
+            onClick={handleGoClick}
+            disabled={goDisabled}
+            className="group relative my-8 flex h-48 w-48 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-sky-500 text-3xl font-extrabold text-white shadow-xl transition-transform active:scale-95 disabled:cursor-default disabled:active:scale-100"
+            style={{
+              animation: !goDisabled ? "pulse-ring 2.2s cubic-bezier(0.4,0,0.6,1) infinite" : undefined,
+              opacity: goDisabled ? 0.5 : 1,
+            }}
           >
-            <option value="">選擇出發站</option>
-            {STATIONS.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </div>
+            <span className="flex flex-col items-center gap-1">
+              <span className="text-4xl">🚴</span>
+              GO
+            </span>
+          </button>
+
+          <div className="flex w-full flex-col gap-3">
+            <select
+              value={startStation}
+              onChange={(e) => setStartStation(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base outline-none focus:border-emerald-400"
+            >
+              <option value="">選擇出發站</option>
+              {STATIONS.map((s) => (
+                <option key={s} value={s} disabled={s === endStation}>
+                  {s}
+                </option>
+              ))}
+            </select>
+            <select
+              value={endStation}
+              onChange={(e) => setEndStation(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base outline-none focus:border-emerald-400"
+            >
+              <option value="">選擇目的站</option>
+              {STATIONS.map((s) => (
+                <option key={s} value={s} disabled={s === startStation}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
+        </>
       )}
 
       {phase === "riding" && (
-        <div className="flex w-full flex-col items-center gap-4">
-          <div className="relative h-2 w-full rounded-full bg-emerald-100">
-            <span
-              className="absolute -top-3 text-2xl"
-              style={{ animation: "ride-move 3s ease-in-out infinite" }}
-            >
-              🚴
-            </span>
+        <div className="mt-6 flex w-full flex-col items-center gap-4">
+          <div className="h-72 w-full overflow-hidden rounded-2xl shadow-md ring-1 ring-black/5">
+            <RideMap startStation={startStation} endStation={endStation} userCoords={coords} />
           </div>
+
+          <span className="font-mono text-3xl font-extrabold text-slate-800">
+            {formatTime(elapsedSeconds)}
+          </span>
           <p className="text-sm font-semibold text-emerald-600">
             本次里程 {liveDistanceKm.toFixed(2)} km
           </p>
-          <div className="rounded-xl bg-white/70 px-4 py-2 text-xs text-slate-400 ring-1 ring-black/5">
-            {coords
-              ? `目前定位：${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`
-              : "定位中…（demo 中無定位權限也沒關係）"}
-          </div>
+
           <div className="flex w-full flex-col gap-3">
             <button
               onClick={handleEndRide}
@@ -205,30 +277,6 @@ export default function HomePage() {
               {simulating ? "模擬中…" : "快速模擬（demo 用）"}
             </button>
           </div>
-        </div>
-      )}
-
-      {phase === "select-end" && (
-        <div className="flex w-full flex-col gap-3">
-          <select
-            value={endStation}
-            onChange={(e) => setEndStation(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base outline-none focus:border-emerald-400"
-          >
-            <option value="">選擇還車站</option>
-            {STATIONS.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={handleConfirmEnd}
-            disabled={!endStation}
-            className="w-full rounded-full bg-emerald-500 py-3 text-base font-semibold text-white shadow-md transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-slate-300"
-          >
-            確認還車
-          </button>
         </div>
       )}
 

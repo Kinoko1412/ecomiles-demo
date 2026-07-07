@@ -77,6 +77,24 @@ function emptyProfile(): ProfileState {
   return { displayName: null, totalDistanceKm: 0, carbonSavedKg: 0, pointsBalance: 0, rideCount: 0 };
 }
 
+// 把 Supabase Auth 回傳的英文錯誤訊息轉成中文提示，未命中的情況原樣顯示英文訊息當備援。
+function mapAuthError(message: string, context: "signup" | "signin"): string {
+  const lower = message.toLowerCase();
+  if (lower.includes("already registered") || lower.includes("already exists")) {
+    return "此 Email 已經被註冊過，請直接登入";
+  }
+  if (lower.includes("password") && (lower.includes("short") || lower.includes("6"))) {
+    return "密碼至少需要 6 碼";
+  }
+  if (lower.includes("email not confirmed")) {
+    return "此帳號尚未完成信箱驗證，請至信箱點擊驗證信中的連結";
+  }
+  if (context === "signin" && lower.includes("invalid login credentials")) {
+    return "帳號或密碼錯誤";
+  }
+  return message;
+}
+
 // Postgres 的 numeric 欄位透過 PostgREST 回來是字串（避免浮點數失真），
 // 一律在這個檔案的邊界統一轉成 number，其他地方就不用再擔心型別。
 type RideRow = {
@@ -130,7 +148,9 @@ type AppContextValue = {
   redemptions: RedemptionRecord[];
   visitedStations: string[];
   rides: RideRecord[];
-  login: (email: string) => Promise<{ success: boolean; error?: string }>;
+  signUp: (email: string, password: string, username: string) => Promise<{ success: boolean; error?: string }>;
+  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  resendSignupEmail: (email: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   completeOnboarding: (displayName: string) => Promise<void>;
   completeRide: (
@@ -276,13 +296,44 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, [supabase, loadAll, resetToLoggedOut]);
 
-  const login = useCallback(
+  const signUp = useCallback(
+    async (email: string, password: string, username: string): Promise<{ success: boolean; error?: string }> => {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { username },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (error) return { success: false, error: mapAuthError(error.message, "signup") };
+      // Supabase 對「email 已註冊但尚未完成驗證」的情況不一定會回傳 error，
+      // 而是回傳一個沒有 identities 的 user（等同悄悄擋下重複註冊）。
+      if (data.user && data.user.identities && data.user.identities.length === 0) {
+        return { success: false, error: "此 Email 已經被註冊過，請直接登入或至信箱收取驗證信" };
+      }
+      return { success: true };
+    },
+    [supabase]
+  );
+
+  const signIn = useCallback(
+    async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) return { success: false, error: mapAuthError(error.message, "signin") };
+      return { success: true };
+    },
+    [supabase]
+  );
+
+  const resendSignupEmail = useCallback(
     async (email: string): Promise<{ success: boolean; error?: string }> => {
-      const { error } = await supabase.auth.signInWithOtp({
+      const { error } = await supabase.auth.resend({
+        type: "signup",
         email,
         options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
       });
-      if (error) return { success: false, error: error.message };
+      if (error) return { success: false, error: mapAuthError(error.message, "signup") };
       return { success: true };
     },
     [supabase]
@@ -443,7 +494,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     redemptions,
     visitedStations,
     rides,
-    login,
+    signUp,
+    signIn,
+    resendSignupEmail,
     logout,
     completeOnboarding,
     completeRide,

@@ -15,14 +15,9 @@ export async function GET(request: Request) {
       } = await supabase.auth.getUser();
 
       if (user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("display_name")
-          .eq("id", user.id)
-          .maybeSingle();
-
-        if (!profile?.display_name) {
-          return NextResponse.redirect(`${origin}/onboarding`);
+        const username = (user.user_metadata as { username?: string } | null)?.username;
+        if (username) {
+          await supabase.from("profiles").upsert({ id: user.id, display_name: username });
         }
       }
 
