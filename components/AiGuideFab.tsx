@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Modal from "@/components/Modal";
 import AiGuideChat from "@/components/AiGuideChat";
 
 const TOOLTIP_SEEN_KEY = "ai-fab-tooltip-seen";
@@ -35,6 +34,10 @@ export default function AiGuideFab() {
     }
   }
 
+  if (open) {
+    return <AiGuideChat onClose={() => setOpen(false)} />;
+  }
+
   return (
     <>
       {showTooltip && (
@@ -55,10 +58,6 @@ export default function AiGuideFab() {
       >
         🧭
       </button>
-
-      <Modal open={open} onClose={() => setOpen(false)}>
-        <AiGuideChat />
-      </Modal>
     </>
   );
 }
