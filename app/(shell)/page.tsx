@@ -34,7 +34,7 @@ function formatTime(totalSeconds: number) {
 }
 
 export default function HomePage() {
-  const { nickname, totalDistanceKm, carbonSavedKg, completeRide } = useApp();
+  const { nickname, totalDistanceKm, carbonSavedKg, points, completeRide } = useApp();
   const level = getLevelByDistance(totalDistanceKm);
 
   const [phase, setPhase] = useState<Phase>("idle");
@@ -43,6 +43,7 @@ export default function HomePage() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [liveDistanceKm, setLiveDistanceKm] = useState(0);
   const [coords, setCoords] = useState<LatLng | null>(null);
+  const [speedKmh, setSpeedKmh] = useState(0);
   const [simulating, setSimulating] = useState(false);
   const [settleResult, setSettleResult] = useState<CompleteRideResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -51,11 +52,38 @@ export default function HomePage() {
   const watchIdRef = useRef<number | null>(null);
   const simulateTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const visitedHighlightIdsRef = useRef<Set<string>>(new Set());
+  const lastSpeedSampleRef = useRef<{ coords: LatLng; t: number } | null>(null);
 
   const highlights = useMemo(
     () => (startStation && endStation ? getRideHighlights(startStation, endStation) : []),
     [startStation, endStation]
   );
+
+  // 用最近一次座標更新換算移動速度：真實 GPS 沒有 speed 欄位、或快速模擬時都靠這個 fallback，
+  // 用指數移動平均稍微平滑一下，避免每次取樣間隔誤差讓數字跳動太劇烈。
+  function updateComputedSpeed(next: LatLng) {
+    const now = performance.now();
+    const last = lastSpeedSampleRef.current;
+    if (last) {
+      const dtSec = (now - last.t) / 1000;
+      if (dtSec > 0.05) {
+        const distM = haversineDistanceMeters(last.coords, next);
+        const kmh = (distM / dtSec) * 3.6;
+        setSpeedKmh((prev) => prev * 0.4 + kmh * 0.6);
+      }
+    }
+    lastSpeedSampleRef.current = { coords: next, t: now };
+  }
+
+  // 全螢幕導航模式時鎖住背景捲動
+  useEffect(() => {
+    if (phase !== "riding") return;
+    const original = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = original;
+    };
+  }, [phase]);
 
   // 計時器：只在騎乘中累加秒數
   useEffect(() => {
@@ -73,14 +101,23 @@ export default function HomePage() {
     return () => clearInterval(tick);
   }, [phase, simulating]);
 
-  // GPS：能拿到就顯示並拿來比對加分站點距離，拿不到權限就安靜降級，不影響 demo 流程
+  // GPS：能拿到就顯示並拿來比對加分站點距離跟即時時速，拿不到權限就安靜降級，不影響 demo 流程
   useEffect(() => {
     if (phase !== "riding" || simulating || typeof navigator === "undefined" || !navigator.geolocation) {
       return;
     }
     try {
       watchIdRef.current = navigator.geolocation.watchPosition(
-        (pos) => setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        (pos) => {
+          const next = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          setCoords(next);
+          if (typeof pos.coords.speed === "number" && pos.coords.speed >= 0) {
+            setSpeedKmh(pos.coords.speed * 3.6);
+            lastSpeedSampleRef.current = { coords: next, t: performance.now() };
+          } else {
+            updateComputedSpeed(next);
+          }
+        },
         () => {
           // 定位失敗或被拒絕：安靜忽略
         },
@@ -141,14 +178,18 @@ export default function HomePage() {
       setElapsedSeconds(0);
       setCoords(null);
       setLiveDistanceKm(0);
+      setSpeedKmh(0);
+      lastSpeedSampleRef.current = null;
     }
   }
 
   function handleGoClick() {
     if (!startStation || !endStation) return;
     visitedHighlightIdsRef.current = new Set();
+    lastSpeedSampleRef.current = null;
     setElapsedSeconds(0);
     setCoords(null);
+    setSpeedKmh(0);
     setLiveDistanceKm(0);
     setPhase("riding");
   }
@@ -168,7 +209,9 @@ export default function HomePage() {
     let step = 0;
     simulateTimerRef.current = setInterval(() => {
       step += 1;
-      setCoords(interpolateLatLng(startCoords, endCoords, step / steps));
+      const next = interpolateLatLng(startCoords, endCoords, step / steps);
+      setCoords(next);
+      updateComputedSpeed(next);
       if (step >= steps) {
         if (simulateTimerRef.current) clearInterval(simulateTimerRef.current);
         simulateTimerRef.current = null;
@@ -186,7 +229,7 @@ export default function HomePage() {
   return (
     <div className="mx-auto flex max-w-md flex-col items-center px-6 pt-10">
       {arrivalToast && (
-        <div className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-6">
+        <div className="pointer-events-none fixed inset-x-0 top-4 z-[60] flex justify-center px-6">
           <div
             className="rounded-full bg-emerald-500 px-5 py-2.5 text-center text-sm font-semibold text-white shadow-lg"
             style={{ animation: "toast-pop 2.6s ease-in-out" }}
@@ -196,14 +239,14 @@ export default function HomePage() {
         </div>
       )}
 
-      <h1 className="text-3xl font-extrabold tracking-tight text-emerald-700">Ecomiles</h1>
-      <p className="mt-1 text-sm text-slate-500">嗨，{nickname} 👋 準備好騎一趟了嗎？</p>
-      {errorMsg && (
-        <p className="mt-2 rounded-xl bg-red-50 px-3 py-1.5 text-xs text-red-500">{errorMsg}</p>
-      )}
-
       {phase === "idle" && (
         <>
+          <h1 className="text-3xl font-extrabold tracking-tight text-emerald-700">Ecomiles</h1>
+          <p className="mt-1 text-sm text-slate-500">嗨，{nickname} 👋 準備好騎一趟了嗎？</p>
+          {errorMsg && (
+            <p className="mt-2 rounded-xl bg-red-50 px-3 py-1.5 text-xs text-red-500">{errorMsg}</p>
+          )}
+
           <button
             onClick={handleGoClick}
             disabled={goDisabled}
@@ -245,46 +288,81 @@ export default function HomePage() {
               ))}
             </select>
           </div>
+
+          <div className="mt-8 grid w-full grid-cols-3 gap-3">
+            <StatCard label="累積里程" value={displayDistanceKm.toFixed(2)} unit="km" />
+            <StatCard label="累積減碳量" value={displayCarbonKg.toFixed(3)} unit="kg" />
+            <StatCard label="目前等級" value={`${level.icon}`} unit={level.name} isText />
+          </div>
         </>
       )}
 
       {phase === "riding" && (
-        <div className="mt-6 flex w-full flex-col items-center gap-4">
-          <div className="h-72 w-full overflow-hidden rounded-2xl shadow-md ring-1 ring-black/5">
+        <div className="fixed inset-0 z-50 bg-slate-900">
+          <div className="absolute inset-0">
             <RideMap startStation={startStation} endStation={endStation} userCoords={coords} />
           </div>
 
-          <span className="font-mono text-3xl font-extrabold text-slate-800">
-            {formatTime(elapsedSeconds)}
-          </span>
-          <p className="text-sm font-semibold text-emerald-600">
-            本次里程 {liveDistanceKm.toFixed(2)} km
-          </p>
+          {/* 頂部：左上角即時時速徽章 + 本次里程資訊列 */}
+          <div
+            className="absolute inset-x-0 top-0 z-10 flex items-center gap-3 px-4"
+            style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}
+          >
+            <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-full bg-white/95 shadow-lg ring-1 ring-black/5">
+              <span className="text-lg font-extrabold leading-none text-slate-800">
+                {speedKmh.toFixed(0)}
+              </span>
+              <span className="mt-0.5 text-[9px] text-slate-400">km/h</span>
+            </div>
+            <div className="flex flex-1 items-center justify-between rounded-full bg-white/95 px-4 py-2.5 shadow-md ring-1 ring-black/5">
+              <span className="text-sm font-semibold text-emerald-600">
+                本次里程 {liveDistanceKm.toFixed(2)} km
+              </span>
+              <span className="font-mono text-xs text-slate-400">{formatTime(elapsedSeconds)}</span>
+            </div>
+          </div>
 
-          <div className="flex w-full flex-col gap-3">
-            <button
-              onClick={handleEndRide}
-              disabled={simulating}
-              className="w-full rounded-full bg-slate-900 py-3 text-base font-semibold text-white shadow-md transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
-              結束騎乘
-            </button>
+          {/* 快速模擬按鈕：浮在底部資訊列上方 */}
+          <div
+            className="absolute inset-x-4 z-10"
+            style={{ bottom: "calc(env(safe-area-inset-bottom) + 88px)" }}
+          >
             <button
               onClick={handleQuickSimulate}
               disabled={simulating}
-              className="w-full rounded-full border-2 border-dashed border-amber-400 bg-amber-50 py-3 text-sm font-semibold text-amber-600 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full rounded-full border-2 border-dashed border-amber-400 bg-amber-50/95 py-3 text-sm font-semibold text-amber-600 shadow-md transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {simulating ? "模擬中…" : "快速模擬（demo 用）"}
             </button>
           </div>
+
+          {/* 底部：累積點數／節省碳量資訊列 + 結束騎乘按鈕 */}
+          <div
+            className="absolute inset-x-0 bottom-0 z-10 flex items-center gap-3 px-4"
+            style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 16px)" }}
+          >
+            <div className="flex flex-1 items-center justify-around rounded-full bg-white/95 px-4 py-3 shadow-md ring-1 ring-black/5">
+              <div className="text-center">
+                <p className="text-[10px] text-slate-400">累積點數</p>
+                <p className="text-sm font-bold text-slate-800">{points} 點</p>
+              </div>
+              <div className="h-6 w-px bg-slate-200" />
+              <div className="text-center">
+                <p className="text-[10px] text-slate-400">節省碳量</p>
+                <p className="text-sm font-bold text-slate-800">{displayCarbonKg.toFixed(3)} kg</p>
+              </div>
+            </div>
+            <button
+              onClick={handleEndRide}
+              disabled={simulating}
+              aria-label="結束騎乘"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-900 text-lg font-bold text-white shadow-md transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
-
-      <div className="mt-8 grid w-full grid-cols-3 gap-3">
-        <StatCard label="累積里程" value={displayDistanceKm.toFixed(2)} unit="km" />
-        <StatCard label="累積減碳量" value={displayCarbonKg.toFixed(3)} unit="kg" />
-        <StatCard label="目前等級" value={`${level.icon}`} unit={level.name} isText />
-      </div>
 
       <Modal open={!!settleResult} onClose={() => setSettleResult(null)}>
         <div className="text-5xl">🎉</div>
