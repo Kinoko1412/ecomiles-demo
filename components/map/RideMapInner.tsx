@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { getRideHighlights, getStationCoords } from "@/lib/stationHighlights";
+import { fetchCyclingRoute } from "@/lib/directions";
 import type { LatLng } from "@/lib/distance";
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
@@ -43,6 +44,7 @@ export default function RideMapInner({ startStation, endStation, userCoords }: R
     });
     mapRef.current = map;
     userMarkerRef.current = null;
+    let routeFetchCancelled = false;
 
     const highlightMarkers: mapboxgl.Marker[] = [];
 
@@ -66,7 +68,9 @@ export default function RideMapInner({ startStation, endStation, userCoords }: R
         type: "line",
         source: "ride-route",
         layout: { "line-join": "round", "line-cap": "round" },
-        paint: { "line-color": "#10b981", "line-width": 4, "line-dasharray": [0.2, 1.5] },
+        // 先用直線當立即可見的 fallback，line-opacity 調淡表示「路線還在抓」，
+        // 貼路網的真實路線抓到後會恢復成完整不透明。
+        paint: { "line-color": "#10b981", "line-width": 4, "line-dasharray": [0.2, 1.5], "line-opacity": 0.5 },
       });
 
       const startEl = document.createElement("div");
@@ -102,9 +106,27 @@ export default function RideMapInner({ startStation, endStation, userCoords }: R
       }
 
       map.fitBounds(bounds, { padding: 56, duration: 0 });
+
+      // 背景抓真正貼路網的路線，抓到就把直線換掉、bounds 重新涵蓋整條路線的每個轉折點；
+      // 抓不到就保留現有的直線，只是把 opacity 復原，不當作還在載入中。
+      fetchCyclingRoute([startCoords, endCoords]).then((geometry) => {
+        if (routeFetchCancelled) return;
+        const source = map.getSource("ride-route") as mapboxgl.GeoJSONSource | undefined;
+        if (source && geometry) {
+          source.setData({ type: "Feature", properties: {}, geometry });
+          for (const [lng, lat] of geometry.coordinates) {
+            bounds.extend([lng, lat]);
+          }
+          map.fitBounds(bounds, { padding: 56, duration: 500 });
+        }
+        if (map.getLayer("ride-route-line")) {
+          map.setPaintProperty("ride-route-line", "line-opacity", 1);
+        }
+      });
     });
 
     return () => {
+      routeFetchCancelled = true;
       highlightMarkers.forEach((m) => m.remove());
       userMarkerRef.current?.remove();
       userMarkerRef.current = null;
