@@ -15,11 +15,11 @@
 
 ## 2. 七星潭風景區
 
-- [冉冉七星潭海景民宿](https://maps.google.com/?cid=9705759265542952082&g_mp=Cilnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaE5lYXJieRACGAQgAA) — 評分 4.9（190則評論）
+- [冉冉七星潭海景民宿](https://maps.google.com/?cid=9705759265542952082&g_mp=Cilnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaE5lYXJieRACGAQgAA) — 評分 4.9（191則評論）
   No. 56號, Mingtan St, Dahan Village, Xincheng Township, Hualien County, Taiwan 971
 - [發現七星潭海景民宿](https://maps.google.com/?cid=4895958709516829876&g_mp=Cilnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaE5lYXJieRACGAQgAA) — 評分 4.8（165則評論）
   No. 58號, Mingtan St, Dahan Village, Xincheng Township, Hualien County, Taiwan 971
-- [Qixingtan Scenic Area](https://maps.google.com/?cid=11195074024425026900&g_mp=Cilnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaE5lYXJieRACGAQgAA) — 評分 4.6（28405則評論）
+- [Qixingtan Scenic Area](https://maps.google.com/?cid=11195074024425026900&g_mp=Cilnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaE5lYXJieRACGAQgAA) — 評分 4.6（28406則評論）
   No. 5號, Lane 79, Qixing St, Dahan Village, Xincheng Township, Hualien County, Taiwan 971
 - [月牙灣鞦韆](https://maps.google.com/?cid=4104193077373116000&g_mp=Cilnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaE5lYXJieRACGAQgAA) — 評分 4.6（63則評論）
   Xincheng Township, Hualien County, Taiwan 971
@@ -32,7 +32,7 @@
   970024, Taiwan, Hualien County, Hualien City, 華西127號
 - [Hotel Bayview](https://maps.google.com/?cid=12864596723392294689&g_mp=Cilnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaE5lYXJieRACGAQgAA) — 評分 4.7（2968則評論）
   No. 10號, Mingtan St, Dahan Village, Xincheng Township, Hualien County, Taiwan 97143
-- [Hualien Qixingtan ‧ Rising Sun Hall](https://maps.google.com/?cid=14615772904830728465&g_mp=Cilnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaE5lYXJieRACGAQgAA) — 評分 4.5（1156則評論）
+- [Hualien Qixingtan ‧ Rising Sun Hall](https://maps.google.com/?cid=14615772904830728465&g_mp=Cilnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaE5lYXJieRACGAQgAA) — 評分 4.5（1157則評論）
   No. 38號, Qixing St, Dahan Village, Xincheng Township, Hualien County, Taiwan 971
 - [四八高地戰備坑道](https://maps.google.com/?cid=9901499292670811362&g_mp=Cilnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaE5lYXJieRACGAQgAA) — 評分 4.4（609則評論）
   Huaxi Rd, Xincheng Township, Hualien County, Taiwan 971
@@ -60,7 +60,7 @@
   970, Taiwan, Hualien County, Hualien City, Minxiao Village, 970花蓮縣花蓮
 - [七星潭天涯海角](https://maps.google.com/?cid=12851348010332538814&g_mp=Cilnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaE5lYXJieRACGAQgAA) — 評分 4.6（11則評論）
   970, Taiwan, Hualien County, Hualien City, Hai'an Rd, 華東路四八高地
-- [Qilaibi Lighthouse Observation Platform](https://maps.google.com/?cid=4685828377501600424&g_mp=Cilnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaE5lYXJieRACGAQgAA) — 評分 4.4（94則評論）
+- [Qilaibi Lighthouse Observation Platform](https://maps.google.com/?cid=4685828377501600424&g_mp=Cilnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaE5lYXJieRACGAQgAA) — 評分 4.4（95則評論）
   Minxiao Village, Hualien City, Hualien County, Taiwan 970
 - [Four-Eight Highland](https://maps.google.com/?cid=14534967676133114557&g_mp=Cilnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLlNlYXJjaE5lYXJieRACGAQgAA) — 評分 4.3（3779則評論）
   970, Taiwan, Hualien County, Hualien City, Hai'an Rd, 華東路
