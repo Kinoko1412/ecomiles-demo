@@ -316,8 +316,9 @@ export default function HomePage() {
         </>
       )}
 
+      {/* z-[55]：蓋過 AiGuideFab（z-50），但還是要讓 arrivalToast（z-[60]）蓋在最上面 */}
       {phase === "riding" && (
-        <div className="fixed inset-0 z-50 bg-slate-900">
+        <div className="fixed inset-0 z-[55] bg-slate-900">
           <div className="absolute inset-0">
             <RideMap
               startStation={startStation}

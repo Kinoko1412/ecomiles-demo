@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import BottomNav from "@/components/BottomNav";
+import AiGuideFab from "@/components/AiGuideFab";
 
 export default async function ShellLayout({
   children,
@@ -26,6 +27,7 @@ export default async function ShellLayout({
     <div className="flex min-h-screen flex-col bg-[radial-gradient(circle_at_top,_#ecfdf5,_#f0faf5_60%)]">
       <main className="flex-1 pb-24">{children}</main>
       <BottomNav />
+      <AiGuideFab />
     </div>
   );
 }
