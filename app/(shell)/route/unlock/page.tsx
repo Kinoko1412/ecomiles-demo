@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { calcCarbonSavedKg } from "@/lib/carbon";
+import { THEME_ROUTES } from "@/lib/themeRoutes";
+import CarbonMilestoneChart from "@/components/CarbonMilestoneChart";
 
 const PERKS = [
   { icon: "🗺️", title: "更多客製化行程", desc: "解鎖精選主題路線的完整站點與延伸玩法" },
@@ -9,6 +12,8 @@ const PERKS = [
 ];
 
 export default function UnlockPage() {
+  const totalCarbonKg = calcCarbonSavedKg(THEME_ROUTES[0].totalDistanceKm);
+
   return (
     <div className="min-h-screen bg-slate-900 px-6 pt-10 text-white">
       <Link href="/route" className="text-sm text-slate-400 hover:text-slate-200">
@@ -36,7 +41,17 @@ export default function UnlockPage() {
         ))}
       </div>
 
-      <div className="mx-auto mt-8 max-w-md rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 p-4 text-center shadow-lg">
+      <div className="mx-auto mt-6 max-w-md">
+        <p className="text-center text-xs leading-relaxed text-slate-400">
+          付款解鎖此行程後，實際出發騎乘時，每達成 1/3 進度，將依累積減碳量發放額外獎勵
+        </p>
+      </div>
+
+      <div className="mx-auto mt-3 max-w-md">
+        <CarbonMilestoneChart totalCarbonKg={totalCarbonKg} />
+      </div>
+
+      <div className="mx-auto mt-6 max-w-md rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 p-4 text-center shadow-lg">
         <p className="text-xs font-semibold text-amber-900">單次解鎖</p>
         <p className="mt-0.5 text-2xl font-bold text-amber-950">NT$99</p>
       </div>
