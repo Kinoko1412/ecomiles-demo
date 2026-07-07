@@ -8,6 +8,7 @@ import {
   getStationsBySegment,
 } from "@/lib/stationHighlights";
 import PlacePhotoCarousel from "@/components/PlacePhotoCarousel";
+import ThemeRouteSection from "@/components/ThemeRouteSection";
 
 type Segment = "coastal" | "jian";
 
@@ -29,6 +30,8 @@ export default function RoutePage() {
   return (
     <div className="mx-auto flex max-w-md flex-col gap-5 px-6 pt-10">
       <h1 className="text-xl font-bold text-emerald-700">路線導覽</h1>
+
+      <ThemeRouteSection />
 
       <div className="flex rounded-full bg-white/80 p-1 shadow-sm ring-1 ring-black/5">
         <button

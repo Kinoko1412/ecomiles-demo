@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { ACHIEVEMENTS, STATIONS } from "@/lib/constants";
 import { useApp } from "@/lib/context/AppContext";
 import { getLevelByDistance, getNextLevel } from "@/lib/levels";
+import SubscriptionPromoCard from "@/components/SubscriptionPromoCard";
+import ComingSoonBanner from "@/components/ComingSoonBanner";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -21,6 +23,7 @@ export default function ProfilePage() {
   } = useApp();
   const level = getLevelByDistance(totalDistanceKm);
   const nextLevel = getNextLevel(totalDistanceKm);
+  const isMasterTier = level.id.startsWith("master");
   // 到下一級還差多少公里、目前這一級走了多少百分比，Lv.20（最高級）沒有下一級可比。
   const levelProgressPercent = nextLevel
     ? Math.min(
@@ -39,7 +42,13 @@ export default function ProfilePage() {
       <div className="flex flex-col items-center gap-2">
         <div
           className="flex h-20 w-20 items-center justify-center rounded-full text-4xl shadow-md"
-          style={{ backgroundColor: `${level.color}22`, border: `3px solid ${level.color}` }}
+          style={{
+            backgroundColor: `${level.color}22`,
+            border: `3px solid ${level.color}`,
+            boxShadow: isMasterTier
+              ? "0 0 0 6px rgba(245,158,11,0.18), 0 0 24px rgba(245,158,11,0.35)"
+              : undefined,
+          }}
         >
           {level.icon}
         </div>
@@ -97,6 +106,10 @@ export default function ProfilePage() {
         查看我的減碳存摺
       </Link>
 
+      <SubscriptionPromoCard />
+
+      <ComingSoonBanner />
+
       <section>
         <h2 className="mb-2 text-sm font-semibold text-slate-600">成就</h2>
         <div className="grid grid-cols-2 gap-3">
@@ -105,12 +118,17 @@ export default function ProfilePage() {
             return (
               <div
                 key={a.code}
-                className={`flex flex-col items-center gap-1 rounded-2xl p-3 text-center shadow-sm ring-1 ${
+                className={`relative flex flex-col items-center gap-1 rounded-2xl p-3 text-center shadow-sm ring-1 ${
                   unlocked
-                    ? "bg-white/80 ring-black/5"
+                    ? "bg-gradient-to-br from-amber-50 to-white ring-amber-200"
                     : "bg-slate-100 text-slate-400 ring-black/5 grayscale"
                 }`}
               >
+                {unlocked && (
+                  <span className="absolute -right-1 -top-1 rounded-full bg-amber-400 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-sm">
+                    👑
+                  </span>
+                )}
                 <span className="text-2xl">{a.icon}</span>
                 <span className="text-xs font-semibold">{a.name}</span>
                 <span className="text-[10px] text-slate-400">{a.description}</span>
