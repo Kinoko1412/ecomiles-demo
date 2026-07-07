@@ -4,6 +4,7 @@ import Link from "next/link";
 import { calcCarbonSavedKg } from "@/lib/carbon";
 import { THEME_ROUTES } from "@/lib/themeRoutes";
 import CarbonMilestoneChart from "@/components/CarbonMilestoneChart";
+import SubscriptionTierCards from "@/components/SubscriptionTierCards";
 
 const PERKS = [
   { icon: "🗺️", title: "更多客製化行程", desc: "解鎖精選主題路線的完整站點與延伸玩法" },
@@ -22,8 +23,8 @@ export default function UnlockPage() {
 
       <div className="mx-auto flex max-w-md flex-col items-center gap-2 pt-8 text-center">
         <span className="text-5xl">👑</span>
-        <h1 className="text-xl font-bold text-white">解鎖完整行程</h1>
-        <p className="text-sm text-slate-400">花 NT$99 解鎖精選路線全部內容與會員專屬功能</p>
+        <h1 className="text-xl font-bold text-white">訂閱解鎖所有路線</h1>
+        <p className="text-sm text-slate-400">訂閱期間即可解鎖所有精選路線與會員專屬功能</p>
       </div>
 
       <div className="mx-auto mt-6 flex max-w-md flex-col gap-3">
@@ -43,7 +44,7 @@ export default function UnlockPage() {
 
       <div className="mx-auto mt-6 max-w-md">
         <p className="text-center text-xs leading-relaxed text-slate-400">
-          付款解鎖此行程後，實際出發騎乘時，每達成 1/3 進度，將依累積減碳量發放額外獎勵
+          訂閱解鎖後，實際出發騎乘時，每達成 1/3 進度，將依累積減碳量發放額外獎勵
         </p>
       </div>
 
@@ -51,16 +52,12 @@ export default function UnlockPage() {
         <CarbonMilestoneChart totalCarbonKg={totalCarbonKg} />
       </div>
 
-      <div className="mx-auto mt-6 max-w-md rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 p-4 text-center shadow-lg">
-        <p className="text-xs font-semibold text-amber-900">單次解鎖</p>
-        <p className="mt-0.5 text-2xl font-bold text-amber-950">NT$99</p>
+      <div className="mx-auto mt-6 max-w-md">
+        <SubscriptionTierCards />
       </div>
 
-      <div className="mx-auto mb-10 mt-4 max-w-md">
-        <div className="w-full rounded-full bg-white py-3 text-center text-sm font-semibold text-slate-900">
-          立即解鎖
-        </div>
-        <p className="mt-2 text-center text-[11px] text-slate-500">此畫面為 demo 展示，尚未串接金流</p>
+      <div className="mx-auto mb-10 mt-3 max-w-md">
+        <p className="text-center text-[11px] text-slate-500">此畫面為 demo 展示，尚未串接金流</p>
       </div>
     </div>
   );
