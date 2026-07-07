@@ -1,8 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { calcCarbonSavedKg } from "@/lib/carbon";
 import { buildGoogleMapsDirUrl, THEME_ROUTES } from "@/lib/themeRoutes";
+
+/** 免費預覽前幾站，第 3 站之後模糊化、導去解鎖頁 */
+const FREE_PREVIEW_STOP_COUNT = 2;
 
 export default function ThemeRouteSection() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -54,37 +58,72 @@ export default function ThemeRouteSection() {
               </span>
             </button>
 
-            {isOpen && (
-              <div className="relative mt-4 pb-1 pl-1">
-                <div className="absolute left-6 top-2 bottom-6 w-0.5 -translate-x-1/2 bg-sky-300" />
-                <div className="flex flex-col gap-3">
-                  {route.stops.map((stop, i) => (
-                    <div key={stop.name} className="flex items-center gap-3">
-                      <div className="z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sky-500 text-sm font-bold text-white shadow-md ring-4 ring-white">
-                        {i + 1}
+            {isOpen && (() => {
+              const freeStops = route.stops.slice(0, FREE_PREVIEW_STOP_COUNT);
+              const lockedStops = route.stops.slice(FREE_PREVIEW_STOP_COUNT);
+              return (
+                <div className="relative mt-4 pb-1 pl-1">
+                  <div className="absolute left-6 top-2 bottom-6 w-0.5 -translate-x-1/2 bg-sky-300" />
+                  <div className="flex flex-col gap-3">
+                    {freeStops.map((stop, i) => (
+                      <div key={stop.name} className="flex items-center gap-3">
+                        <div className="z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sky-500 text-sm font-bold text-white shadow-md ring-4 ring-white">
+                          {i + 1}
+                        </div>
+                        <div className="min-w-0 flex-1 rounded-xl bg-white/60 px-3 py-2">
+                          <p className="truncate text-sm font-semibold text-slate-800">
+                            {stop.name}
+                          </p>
+                          <p className="text-[11px] text-slate-400">
+                            {stop.time}
+                            {stop.deltaKm > 0 && <> ・ +{stop.deltaKm} km</>}
+                          </p>
+                        </div>
                       </div>
-                      <div className="min-w-0 flex-1 rounded-xl bg-white/60 px-3 py-2">
-                        <p className="truncate text-sm font-semibold text-slate-800">
-                          {stop.name}
-                        </p>
-                        <p className="text-[11px] text-slate-400">
-                          {stop.time}
-                          {stop.deltaKm > 0 && <> ・ +{stop.deltaKm} km</>}
-                        </p>
+                    ))}
+
+                    {lockedStops.length > 0 && (
+                      <div className="relative">
+                        <div className="flex select-none flex-col gap-3 blur-[3px] opacity-60">
+                          {lockedStops.map((stop, i) => (
+                            <div key={stop.name} className="flex items-center gap-3">
+                              <div className="z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sky-500 text-sm font-bold text-white shadow-md ring-4 ring-white">
+                                {FREE_PREVIEW_STOP_COUNT + i + 1}
+                              </div>
+                              <div className="min-w-0 flex-1 rounded-xl bg-white/60 px-3 py-2">
+                                <p className="truncate text-sm font-semibold text-slate-800">
+                                  {stop.name}
+                                </p>
+                                <p className="text-[11px] text-slate-400">
+                                  {stop.time}
+                                  {stop.deltaKm > 0 && <> ・ +{stop.deltaKm} km</>}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Link
+                            href="/route/unlock"
+                            className="inline-flex items-center gap-1.5 rounded-full bg-slate-900/90 px-4 py-2 text-xs font-semibold text-white shadow-md transition-colors hover:bg-slate-900"
+                          >
+                            🔒 更多內容
+                          </Link>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )}
+                  </div>
+                  <a
+                    href={buildGoogleMapsDirUrl(route)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-600 transition-colors hover:bg-sky-100"
+                  >
+                    在 Google Maps 開啟 ↗
+                  </a>
                 </div>
-                <a
-                  href={buildGoogleMapsDirUrl(route)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-600 transition-colors hover:bg-sky-100"
-                >
-                  在 Google Maps 開啟 ↗
-                </a>
-              </div>
-            )}
+              );
+            })()}
           </div>
         );
       })}
