@@ -362,7 +362,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     async (identifier: string, password: string): Promise<{ success: boolean; error?: string }> => {
       let email = identifier;
       if (!identifier.includes("@")) {
-        const { data } = await supabase.rpc("get_email_by_username", { p_username: identifier });
+        const { data, error: rpcError } = await supabase.rpc("get_email_by_username", {
+          p_username: identifier,
+        });
+        // RPC 本身失敗（例如資料庫還沒跑 0002 migration、function 不存在）跟「單純查無此使用者名稱」
+        // 是兩種不同狀況，前者要讓開發者看得出來是設定沒做完，不能兩種都吃成同一句「帳號或密碼錯誤」。
+        if (rpcError) {
+          return { success: false, error: `登入功能異常，請確認資料庫已執行最新 migration（${rpcError.message}）` };
+        }
         if (!data) return { success: false, error: "帳號或密碼錯誤" };
         email = data as string;
       }
