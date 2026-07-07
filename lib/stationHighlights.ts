@@ -11,14 +11,17 @@ export type HighlightPlace = {
   lat: number;
   lng: number;
   mapsUri: string;
+  photos: string[];
 };
+
+type RawPlace = Omit<HighlightPlace, "id" | "photos"> & { photos?: string[] };
 
 type StationHighlightEntry = {
   station: string;
-  segment: string;
+  segment: "coastal" | "jian";
   lat: number;
   lng: number;
-  places: Omit<HighlightPlace, "id">[];
+  places: RawPlace[];
 };
 
 const RAW = rawHighlights as Record<string, StationHighlightEntry>;
@@ -78,7 +81,83 @@ export function getHighlightPlaces(stationName: string): HighlightPlace[] {
   return sorted.slice(0, MAX_PLACES_PER_STATION).map((p, i) => ({
     ...p,
     id: `${key}-${i}`,
+    photos: p.photos ?? [],
   }));
+}
+
+const MAX_PLACES_FOR_DIRECTORY = 5;
+
+/** 「路線」分頁用：該站篩選後、最多 5 筆，純粹依評分排序（不像加分站點那樣優先景點類） */
+export function getStationDirectoryPlaces(stationName: string): HighlightPlace[] {
+  const key = keyForStation(stationName);
+  const entry = key ? RAW[key] : undefined;
+  if (!entry) return [];
+
+  const filtered = entry.places.filter((p) => !p.types.some((t) => EXCLUDED_TYPES.has(t)));
+  const sorted = [...filtered].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+
+  return sorted.slice(0, MAX_PLACES_FOR_DIRECTORY).map((p, i) => ({
+    ...p,
+    id: `${key}-dir-${i}`,
+    photos: p.photos ?? [],
+  }));
+}
+
+export function getStationSegment(stationName: string): "coastal" | "jian" | null {
+  const key = keyForStation(stationName);
+  const entry = key ? RAW[key] : undefined;
+  return entry?.segment ?? null;
+}
+
+export type StationListItem = { index: number; name: string; segment: "coastal" | "jian" };
+
+/** 該線（海線/山線）站點清單，index 是 1~14 的實際站點編號，不是該線內重新編號 */
+export function getStationsBySegment(segment: "coastal" | "jian"): StationListItem[] {
+  const result: StationListItem[] = [];
+  STATIONS.forEach((name, i) => {
+    const s = getStationSegment(name);
+    if (s === segment) result.push({ index: i + 1, name, segment: s });
+  });
+  return result;
+}
+
+// 依類型挑一個代表 icon，由上而下第一個命中的類別勝出，其餘落到預設的 📍。
+const ICON_RULES: [string[], string][] = [
+  [["bicycle_store"], "🚲"],
+  [["museum"], "🏛️"],
+  [["place_of_worship", "buddhist_temple"], "⛩️"],
+  [["cafe", "dessert_shop", "ice_cream_shop", "confectionery"], "🍰"],
+  [
+    [
+      "restaurant",
+      "chinese_restaurant",
+      "american_restaurant",
+      "family_restaurant",
+      "hot_pot_restaurant",
+      "tex_mex_restaurant",
+      "deli",
+      "food",
+      "food_store",
+    ],
+    "🍽️",
+  ],
+  [["park"], "🌳"],
+  [["scenic_spot", "tourist_attraction", "observation_deck"], "🏞️"],
+  [["hiking_area", "campground", "camping_cabin"], "⛺"],
+  [["swimming_pool"], "🏊"],
+  [["sporting_goods_store", "sports_activity_location"], "🏸"],
+  [["train_station", "transit_station", "transportation_service"], "🚉"],
+  [["tour_agency", "travel_agency"], "🧳"],
+  [["store", "market", "liquor_store", "book_store", "winery", "farm", "manufacturer", "supplier"], "🛍️"],
+  [["educational_institution", "university"], "🎓"],
+  [["government_office", "association_or_organization", "convention_center", "event_venue", "service"], "🏢"],
+];
+
+export function getPlaceIcon(types: string[]): string {
+  for (const [candidates, icon] of ICON_RULES) {
+    if (types.some((t) => candidates.includes(t))) return icon;
+  }
+  return "📍";
 }
 
 export type RideHighlight = HighlightPlace & { stationLabel: string };

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const TABS = [
   { href: "/", label: "首頁", icon: "🏠" },
+  { href: "/route", label: "路線", icon: "🗺️" },
   { href: "/redeem", label: "兌換", icon: "🎁" },
   { href: "/profile", label: "個人", icon: "👤" },
 ];
