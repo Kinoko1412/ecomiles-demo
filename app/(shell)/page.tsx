@@ -35,12 +35,11 @@ type Phase = "idle" | "riding";
 
 const ARRIVAL_RADIUS_M = 80;
 const SIMULATE_TICK_MS = 200;
-// 快速模擬的總時長跟著路線實際距離拉長，但夾在一個 demo 還能耐心等待的範圍內：
-// 完全依照真實均速（例如 18 km/h）換算的話，一趟 5 公里的路線要等 16 分鐘，demo 不可能這樣跑，
-// 所以這裡只是「距離越長、模擬跑越久」的近似感，不是真的物理模擬。
-const SIMULATE_BASE_DURATION_MS = 6000;
-const SIMULATE_DURATION_PER_KM_MS = 800;
-const SIMULATE_MAX_DURATION_MS = 16000;
+// 快速模擬改成真實均速 25 km/h（一般人騎腳踏車的日常速度），不是壓縮過的 demo 節奏：
+// 距離長的路線就是會跑比較久（例如 9.5 公里的海線全段大約 23 分鐘），這是刻意的選擇——
+// 使用者可以按「跳過，直接完成」提前結束，不用真的等完。
+const SIMULATE_SPEED_KMH = 25;
+const SIMULATE_MIN_DURATION_MS = 3000;
 
 function formatTime(totalSeconds: number) {
   const m = Math.floor(totalSeconds / 60)
@@ -85,6 +84,9 @@ export default function HomePage() {
   const visitedHighlightIdsRef = useRef<Set<string>>(new Set());
   const lastSpeedSampleRef = useRef<{ coords: LatLng; t: number } | null>(null);
   const routeFetchTokenRef = useRef(0);
+  // 這趟模擬的路線真實總距離，「跳過，直接完成」要用這個值結算，不是模擬跑到一半的
+  // liveDistanceKm（那個只反映動畫目前跑到哪，不是完整路線長度）。
+  const simulateTotalDistanceKmRef = useRef(0);
 
   const highlights = useMemo(
     () => (startStation && endStation ? getRideHighlights(startStation, endStation) : []),
@@ -296,9 +298,12 @@ export default function HomePage() {
     // 用路線的真實長度算這趟騎乘的里程，不要再用一個跟路線無關的隨機數字，
     // 這樣「本次里程」「本趟點數」「節省碳量」在模擬過程中才會是同一組有意義、對得起來的數字。
     const totalDistanceKm = Math.max(0.05, totalPathDistanceKm(path));
-    const totalDurationMs = Math.min(
-      SIMULATE_MAX_DURATION_MS,
-      SIMULATE_BASE_DURATION_MS + totalDistanceKm * SIMULATE_DURATION_PER_KM_MS
+    simulateTotalDistanceKmRef.current = totalDistanceKm;
+    // 真實 25km/h 均速換算，不再夾上限：距離長路線就是要跑比較久，覺得太久可以按
+    // 「跳過，直接完成」（見 handleSkipSimulation）。
+    const totalDurationMs = Math.max(
+      SIMULATE_MIN_DURATION_MS,
+      (totalDistanceKm / SIMULATE_SPEED_KMH) * 3600 * 1000
     );
     const steps = Math.max(1, Math.round(totalDurationMs / SIMULATE_TICK_MS));
 
@@ -319,6 +324,22 @@ export default function HomePage() {
         finalizeRide(Number(totalDistanceKm.toFixed(2)));
       }
     }, SIMULATE_TICK_MS);
+  }
+
+  // 真實均速模擬長路線可能要跑幾十分鐘，這個按鈕讓使用者不用真的等完：直接把座標跳到
+  // 終點、里程補滿全程真實距離，跟正常跑完的結算邏輯共用同一個 finalizeRide。
+  function handleSkipSimulation() {
+    if (!simulating) return;
+    if (simulateTimerRef.current) {
+      clearInterval(simulateTimerRef.current);
+      simulateTimerRef.current = null;
+    }
+    const endCoords = getStationCoords(endStation);
+    if (endCoords) setCoords(endCoords);
+    const totalDistanceKm = simulateTotalDistanceKmRef.current;
+    setLiveDistanceKm(totalDistanceKm);
+    setSimulating(false);
+    finalizeRide(Number(totalDistanceKm.toFixed(2)));
   }
 
   const goDisabled = !startStation || !endStation || startStation === endStation;
@@ -443,11 +464,10 @@ export default function HomePage() {
             style={{ bottom: "calc(env(safe-area-inset-bottom) + 88px)" }}
           >
             <button
-              onClick={handleQuickSimulate}
-              disabled={simulating}
-              className="w-full rounded-full border-2 border-dashed border-amber-400/70 bg-slate-900/90 py-3 text-sm font-semibold text-amber-400 shadow-lg backdrop-blur transition-colors hover:bg-slate-800/90 disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={simulating ? handleSkipSimulation : handleQuickSimulate}
+              className="w-full rounded-full border-2 border-dashed border-amber-400/70 bg-slate-900/90 py-3 text-sm font-semibold text-amber-400 shadow-lg backdrop-blur transition-colors hover:bg-slate-800/90"
             >
-              {simulating ? "模擬中…" : "快速模擬（demo 用）"}
+              {simulating ? "模擬中…（點我跳過，直接完成）" : "快速模擬（demo 用，真實均速 25km/h）"}
             </button>
           </div>
 
