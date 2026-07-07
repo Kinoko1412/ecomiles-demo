@@ -225,7 +225,7 @@ export default function LoginForm() {
             {signupStep === "code" && (
               <form onSubmit={handleVerifyCode} className="flex flex-col gap-4">
                 <p className="text-sm text-slate-600">
-                  驗證碼已寄到 <span className="font-semibold">{signupEmail}</span>，請輸入信件裡的 6 位數字。
+                  驗證碼已寄到 <span className="font-semibold">{signupEmail}</span>，請輸入信件裡的驗證碼。
                 </p>
                 <div>
                   <label htmlFor="signup-code" className="mb-1.5 block text-sm font-medium text-slate-600">
@@ -238,8 +238,8 @@ export default function LoginForm() {
                     autoFocus
                     value={signupCode}
                     onChange={(e) => setSignupCode(e.target.value)}
-                    placeholder="123456"
-                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-center text-lg tracking-[0.3em] outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                    placeholder="12345678"
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-center text-lg tracking-[0.2em] outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
                   />
                 </div>
                 {signupError && <p className="text-xs text-red-500">{signupError}</p>}
