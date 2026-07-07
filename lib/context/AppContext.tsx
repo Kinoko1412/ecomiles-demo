@@ -86,11 +86,17 @@ function mapAuthError(message: string, context: "signup" | "signin"): string {
   if (lower.includes("password") && (lower.includes("short") || lower.includes("6"))) {
     return "密碼至少需要 6 碼";
   }
-  if (lower.includes("email not confirmed")) {
-    return "此帳號尚未完成信箱驗證，請至信箱點擊驗證信中的連結";
+  if (lower.includes("rate limit")) {
+    return "寄送過於頻繁，請稍後再試";
   }
   if (context === "signin" && lower.includes("invalid login credentials")) {
     return "帳號或密碼錯誤";
+  }
+  if (lower.includes("token has expired") || lower.includes("invalid otp") || lower.includes("invalid token")) {
+    return "驗證碼錯誤或已過期，請重新取得";
+  }
+  if (lower.includes("email not confirmed")) {
+    return "此帳號尚未完成信箱驗證";
   }
   return message;
 }
@@ -148,9 +154,10 @@ type AppContextValue = {
   redemptions: RedemptionRecord[];
   visitedStations: string[];
   rides: RideRecord[];
-  signUp: (email: string, password: string, username: string) => Promise<{ success: boolean; error?: string }>;
-  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  resendSignupEmail: (email: string) => Promise<{ success: boolean; error?: string }>;
+  sendSignupCode: (email: string) => Promise<{ success: boolean; error?: string }>;
+  verifySignupCode: (email: string, code: string) => Promise<{ success: boolean; error?: string }>;
+  completeSignupProfile: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signIn: (identifier: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   completeOnboarding: (displayName: string) => Promise<void>;
   completeRide: (
@@ -296,44 +303,71 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, [supabase, loadAll, resetToLoggedOut]);
 
-  const signUp = useCallback(
-    async (email: string, password: string, username: string): Promise<{ success: boolean; error?: string }> => {
-      const { data, error } = await supabase.auth.signUp({
+  // 註冊第一步：寄出 6 位數驗證碼（沿用 Magic Link 樣板的 {{ .Token }}，不是點連結）。
+  // 同一支函式也用來做「重新發送」。
+  const sendSignupCode = useCallback(
+    async (email: string): Promise<{ success: boolean; error?: string }> => {
+      const { error } = await supabase.auth.signInWithOtp({
         email,
-        password,
-        options: {
-          data: { username },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
+        options: { shouldCreateUser: true },
       });
       if (error) return { success: false, error: mapAuthError(error.message, "signup") };
-      // Supabase 對「email 已註冊但尚未完成驗證」的情況不一定會回傳 error，
-      // 而是回傳一個沒有 identities 的 user（等同悄悄擋下重複註冊）。
-      if (data.user && data.user.identities && data.user.identities.length === 0) {
-        return { success: false, error: "此 Email 已經被註冊過，請直接登入或至信箱收取驗證信" };
-      }
       return { success: true };
     },
     [supabase]
+  );
+
+  // 註冊第二步：驗證碼比對成功後直接建立 session（email 也一併視為已驗證），
+  // 但這時候使用者還沒有設密碼、也還沒有使用者名稱。
+  const verifySignupCode = useCallback(
+    async (email: string, code: string): Promise<{ success: boolean; error?: string }> => {
+      const { error } = await supabase.auth.verifyOtp({ email, token: code, type: "email" });
+      if (error) return { success: false, error: mapAuthError(error.message, "signup") };
+      return { success: true };
+    },
+    [supabase]
+  );
+
+  // 註冊第三步：驗證碼通過、已經有 session 之後，補上使用者名稱跟密碼。
+  // display_name 用 update 不用 upsert：profiles 這筆列在 auth.users 建立時就由
+  // trigger 自動產生了，upsert 的 insert 分支會撞到 RLS（沒有開放 insert policy）。
+  const completeSignupProfile = useCallback(
+    async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
+      if (!userId) return { success: false, error: "尚未完成驗證，請重新操作" };
+
+      const { error: authError } = await supabase.auth.updateUser({
+        password,
+        data: { username },
+      });
+      if (authError) return { success: false, error: mapAuthError(authError.message, "signup") };
+
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ display_name: username })
+        .eq("id", userId);
+      if (profileError) {
+        if (profileError.code === "23505") {
+          return { success: false, error: "此使用者名稱已經被使用，請換一個試試" };
+        }
+        return { success: false, error: profileError.message };
+      }
+
+      setProfile((p) => ({ ...p, displayName: username }));
+      return { success: true };
+    },
+    [supabase, userId]
   );
 
   const signIn = useCallback(
-    async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    async (identifier: string, password: string): Promise<{ success: boolean; error?: string }> => {
+      let email = identifier;
+      if (!identifier.includes("@")) {
+        const { data } = await supabase.rpc("get_email_by_username", { p_username: identifier });
+        if (!data) return { success: false, error: "帳號或密碼錯誤" };
+        email = data as string;
+      }
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) return { success: false, error: mapAuthError(error.message, "signin") };
-      return { success: true };
-    },
-    [supabase]
-  );
-
-  const resendSignupEmail = useCallback(
-    async (email: string): Promise<{ success: boolean; error?: string }> => {
-      const { error } = await supabase.auth.resend({
-        type: "signup",
-        email,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-      });
-      if (error) return { success: false, error: mapAuthError(error.message, "signup") };
       return { success: true };
     },
     [supabase]
@@ -494,9 +528,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     redemptions,
     visitedStations,
     rides,
-    signUp,
+    sendSignupCode,
+    verifySignupCode,
+    completeSignupProfile,
     signIn,
-    resendSignupEmail,
     logout,
     completeOnboarding,
     completeRide,

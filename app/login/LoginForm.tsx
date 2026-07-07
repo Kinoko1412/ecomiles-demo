@@ -5,28 +5,28 @@ import { useRouter } from "next/navigation";
 import { useApp } from "@/lib/context/AppContext";
 
 type Tab = "login" | "signup";
+type SignupStep = "email" | "code" | "profile";
 
 export default function LoginForm() {
-  const { signIn, signUp, resendSignupEmail } = useApp();
+  const { signIn, sendSignupCode, verifySignupCode, completeSignupProfile } = useApp();
   const router = useRouter();
 
   const [tab, setTab] = useState<Tab>("login");
-  const [awaitingConfirmation, setAwaitingConfirmation] = useState<string | null>(null);
 
-  const [loginEmail, setLoginEmail] = useState("");
+  const [loginIdentifier, setLoginIdentifier] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginSubmitting, setLoginSubmitting] = useState(false);
   const [loginError, setLoginError] = useState("");
 
+  const [signupStep, setSignupStep] = useState<SignupStep>("email");
   const [signupEmail, setSignupEmail] = useState("");
+  const [signupCode, setSignupCode] = useState("");
   const [signupUsername, setSignupUsername] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [signupSubmitting, setSignupSubmitting] = useState(false);
   const [signupError, setSignupError] = useState("");
 
   const [resendCooldown, setResendCooldown] = useState(0);
-  const [resendSubmitting, setResendSubmitting] = useState(false);
-  const [resendMsg, setResendMsg] = useState("");
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -36,11 +36,11 @@ export default function LoginForm() {
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    const email = loginEmail.trim();
-    if (!email || !loginPassword) return;
+    const identifier = loginIdentifier.trim();
+    if (!identifier || !loginPassword) return;
     setLoginSubmitting(true);
     setLoginError("");
-    const result = await signIn(email, loginPassword);
+    const result = await signIn(identifier, loginPassword);
     setLoginSubmitting(false);
     if (result.success) {
       router.push("/");
@@ -50,39 +50,77 @@ export default function LoginForm() {
     }
   }
 
-  async function handleSignup(e: React.FormEvent) {
+  async function handleSendCode(e: React.FormEvent) {
     e.preventDefault();
     const email = signupEmail.trim();
+    if (!email) return;
+    setSignupSubmitting(true);
+    setSignupError("");
+    const result = await sendSignupCode(email);
+    setSignupSubmitting(false);
+    if (result.success) {
+      setSignupStep("code");
+      setResendCooldown(60);
+    } else {
+      setSignupError(result.error ?? "寄送失敗，請稍後再試");
+    }
+  }
+
+  async function handleResendCode() {
+    if (resendCooldown > 0) return;
+    setSignupSubmitting(true);
+    setSignupError("");
+    const result = await sendSignupCode(signupEmail.trim());
+    setSignupSubmitting(false);
+    if (result.success) {
+      setResendCooldown(60);
+    } else {
+      setSignupError(result.error ?? "重寄失敗，請稍後再試");
+    }
+  }
+
+  async function handleVerifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    const code = signupCode.trim();
+    if (!code) return;
+    setSignupSubmitting(true);
+    setSignupError("");
+    const result = await verifySignupCode(signupEmail.trim(), code);
+    setSignupSubmitting(false);
+    if (result.success) {
+      setSignupStep("profile");
+    } else {
+      setSignupError(result.error ?? "驗證碼錯誤或已過期，請重新取得");
+    }
+  }
+
+  async function handleCompleteProfile(e: React.FormEvent) {
+    e.preventDefault();
     const username = signupUsername.trim();
-    if (!email || !username) return;
+    if (!username) return;
     if (signupPassword.length < 6) {
       setSignupError("密碼至少需要 6 碼");
       return;
     }
     setSignupSubmitting(true);
     setSignupError("");
-    const result = await signUp(email, signupPassword, username);
+    const result = await completeSignupProfile(username, signupPassword);
     setSignupSubmitting(false);
     if (result.success) {
-      setAwaitingConfirmation(email);
-      setResendCooldown(60);
+      router.push("/");
+      router.refresh();
     } else {
-      setSignupError(result.error ?? "註冊失敗，請稍後再試");
+      setSignupError(result.error ?? "設定失敗，請稍後再試");
     }
   }
 
-  async function handleResend() {
-    if (!awaitingConfirmation || resendCooldown > 0) return;
-    setResendSubmitting(true);
-    setResendMsg("");
-    const result = await resendSignupEmail(awaitingConfirmation);
-    setResendSubmitting(false);
-    if (result.success) {
-      setResendMsg("已重新寄送驗證信");
-      setResendCooldown(60);
-    } else {
-      setResendMsg(result.error ?? "重寄失敗，請稍後再試");
-    }
+  function resetSignup() {
+    setSignupStep("email");
+    setSignupEmail("");
+    setSignupCode("");
+    setSignupUsername("");
+    setSignupPassword("");
+    setSignupError("");
   }
 
   return (
@@ -94,101 +132,71 @@ export default function LoginForm() {
           <p className="mt-1 text-sm text-slate-500">花蓮單車減碳兌換</p>
         </div>
 
-        {awaitingConfirmation ? (
-          <div className="flex flex-col items-center gap-4 text-center">
-            <span className="text-4xl">📬</span>
-            <p className="text-sm text-slate-600">
-              我們已寄出驗證信到{" "}
-              <span className="font-semibold">{awaitingConfirmation}</span>
-              ，請點擊信中連結完成註冊。
-            </p>
-            {resendMsg && <p className="text-xs text-slate-500">{resendMsg}</p>}
+        <div className="mb-6 flex rounded-full bg-slate-100 p-1 text-sm font-semibold">
+          <button
+            type="button"
+            onClick={() => setTab("login")}
+            className={`flex-1 rounded-full py-2 transition-colors ${
+              tab === "login" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-400"
+            }`}
+          >
+            登入
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setTab("signup");
+              resetSignup();
+            }}
+            className={`flex-1 rounded-full py-2 transition-colors ${
+              tab === "signup" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-400"
+            }`}
+          >
+            註冊
+          </button>
+        </div>
+
+        {tab === "login" ? (
+          <form onSubmit={handleLogin} className="flex flex-col gap-4">
+            <div>
+              <label htmlFor="login-identifier" className="mb-1.5 block text-sm font-medium text-slate-600">
+                使用者名稱 / Email
+              </label>
+              <input
+                id="login-identifier"
+                autoFocus
+                value={loginIdentifier}
+                onChange={(e) => setLoginIdentifier(e.target.value)}
+                placeholder="使用者名稱或 you@example.com"
+                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+              />
+            </div>
+            <div>
+              <label htmlFor="login-password" className="mb-1.5 block text-sm font-medium text-slate-600">
+                密碼
+              </label>
+              <input
+                id="login-password"
+                type="password"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                placeholder="••••••"
+                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+              />
+            </div>
+            {loginError && <p className="text-xs text-red-500">{loginError}</p>}
             <button
-              type="button"
-              onClick={handleResend}
-              disabled={resendCooldown > 0 || resendSubmitting}
+              type="submit"
+              disabled={!loginIdentifier.trim() || !loginPassword || loginSubmitting}
               className="w-full rounded-full bg-emerald-500 py-3 text-base font-semibold text-white shadow-md transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
-              {resendSubmitting
-                ? "寄送中…"
-                : resendCooldown > 0
-                ? `重新發送驗證信（${resendCooldown}s）`
-                : "重新發送驗證信"}
+              {loginSubmitting ? "登入中…" : "登入"}
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setAwaitingConfirmation(null);
-                setTab("login");
-              }}
-              className="text-xs text-slate-400 underline"
-            >
-              返回登入
-            </button>
-          </div>
+          </form>
         ) : (
           <>
-            <div className="mb-6 flex rounded-full bg-slate-100 p-1 text-sm font-semibold">
-              <button
-                type="button"
-                onClick={() => setTab("login")}
-                className={`flex-1 rounded-full py-2 transition-colors ${
-                  tab === "login" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-400"
-                }`}
-              >
-                登入
-              </button>
-              <button
-                type="button"
-                onClick={() => setTab("signup")}
-                className={`flex-1 rounded-full py-2 transition-colors ${
-                  tab === "signup" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-400"
-                }`}
-              >
-                註冊
-              </button>
-            </div>
-
-            {tab === "login" ? (
-              <form onSubmit={handleLogin} className="flex flex-col gap-4">
-                <div>
-                  <label htmlFor="login-email" className="mb-1.5 block text-sm font-medium text-slate-600">
-                    Email
-                  </label>
-                  <input
-                    id="login-email"
-                    type="email"
-                    autoFocus
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="login-password" className="mb-1.5 block text-sm font-medium text-slate-600">
-                    密碼
-                  </label>
-                  <input
-                    id="login-password"
-                    type="password"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    placeholder="••••••"
-                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-                  />
-                </div>
-                {loginError && <p className="text-xs text-red-500">{loginError}</p>}
-                <button
-                  type="submit"
-                  disabled={!loginEmail.trim() || !loginPassword || loginSubmitting}
-                  className="w-full rounded-full bg-emerald-500 py-3 text-base font-semibold text-white shadow-md transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-slate-300"
-                >
-                  {loginSubmitting ? "登入中…" : "登入"}
-                </button>
-              </form>
-            ) : (
-              <form onSubmit={handleSignup} className="flex flex-col gap-4">
+            {signupStep === "email" && (
+              <form onSubmit={handleSendCode} className="flex flex-col gap-4">
                 <div>
                   <label htmlFor="signup-email" className="mb-1.5 block text-sm font-medium text-slate-600">
                     Email
@@ -203,12 +211,65 @@ export default function LoginForm() {
                     className="w-full rounded-xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
                   />
                 </div>
+                {signupError && <p className="text-xs text-red-500">{signupError}</p>}
+                <button
+                  type="submit"
+                  disabled={!signupEmail.trim() || signupSubmitting}
+                  className="w-full rounded-full bg-emerald-500 py-3 text-base font-semibold text-white shadow-md transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  {signupSubmitting ? "寄送中…" : "取得驗證碼"}
+                </button>
+              </form>
+            )}
+
+            {signupStep === "code" && (
+              <form onSubmit={handleVerifyCode} className="flex flex-col gap-4">
+                <p className="text-sm text-slate-600">
+                  驗證碼已寄到 <span className="font-semibold">{signupEmail}</span>，請輸入信件裡的 6 位數字。
+                </p>
+                <div>
+                  <label htmlFor="signup-code" className="mb-1.5 block text-sm font-medium text-slate-600">
+                    驗證碼
+                  </label>
+                  <input
+                    id="signup-code"
+                    type="text"
+                    inputMode="numeric"
+                    autoFocus
+                    value={signupCode}
+                    onChange={(e) => setSignupCode(e.target.value)}
+                    placeholder="123456"
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-center text-lg tracking-[0.3em] outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                  />
+                </div>
+                {signupError && <p className="text-xs text-red-500">{signupError}</p>}
+                <button
+                  type="submit"
+                  disabled={!signupCode.trim() || signupSubmitting}
+                  className="w-full rounded-full bg-emerald-500 py-3 text-base font-semibold text-white shadow-md transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  {signupSubmitting ? "驗證中…" : "驗證"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResendCode}
+                  disabled={resendCooldown > 0 || signupSubmitting}
+                  className="text-xs text-slate-400 underline disabled:no-underline disabled:text-slate-300"
+                >
+                  {resendCooldown > 0 ? `重新發送驗證碼（${resendCooldown}s）` : "重新發送驗證碼"}
+                </button>
+              </form>
+            )}
+
+            {signupStep === "profile" && (
+              <form onSubmit={handleCompleteProfile} className="flex flex-col gap-4">
                 <div>
                   <label htmlFor="signup-username" className="mb-1.5 block text-sm font-medium text-slate-600">
                     使用者名稱
                   </label>
                   <input
                     id="signup-username"
+                    autoFocus
                     value={signupUsername}
                     onChange={(e) => setSignupUsername(e.target.value)}
                     placeholder="輸入你的暱稱"
@@ -231,10 +292,10 @@ export default function LoginForm() {
                 {signupError && <p className="text-xs text-red-500">{signupError}</p>}
                 <button
                   type="submit"
-                  disabled={!signupEmail.trim() || !signupUsername.trim() || !signupPassword || signupSubmitting}
+                  disabled={!signupUsername.trim() || !signupPassword || signupSubmitting}
                   className="w-full rounded-full bg-emerald-500 py-3 text-base font-semibold text-white shadow-md transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
-                  {signupSubmitting ? "註冊中…" : "註冊"}
+                  {signupSubmitting ? "完成註冊中…" : "完成註冊"}
                 </button>
               </form>
             )}
