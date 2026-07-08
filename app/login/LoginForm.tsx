@@ -9,6 +9,14 @@ type Tab = "login" | "signup";
 type SignupStep = "email" | "code" | "profile";
 type Portal = "public" | "admin";
 
+const RIDE_DISCLAIMER = [
+  "遵守道路交通安全規則，配戴安全帽等防護裝備，禁止酒後或疲勞騎乘；",
+  "依自身體能、健康狀況與騎乘經驗評估路線難度，量力而為；未滿 18 歲者請於監護人同意及陪同下使用本服務；",
+  "騎乘前請確認車輛煞車、輪胎及智慧車鎖狀態正常，如發現異常應立即停止使用並回報站點或客服；",
+  "騎乘期間如發生交通事故或人身損害，應依相關法規自行處理並負擔相應責任；本平台不提供保險，亦不對騎乘過程中之意外事故負賠償責任，但因平台系統錯誤（如里程計算錯誤）致使用者權益受損者不在此限；",
+  "本平台將透過 GPS 記錄您的騎乘軌跡，用於計算里程與減碳量等服務功能，相關資料僅作站內用途使用，不會另作商業利用。",
+];
+
 export default function LoginForm() {
   const { signIn, sendSignupCode, verifySignupCode, completeSignupProfile } = useApp();
   const router = useRouter();
@@ -28,6 +36,7 @@ export default function LoginForm() {
   const [signupPassword, setSignupPassword] = useState("");
   const [signupSubmitting, setSignupSubmitting] = useState(false);
   const [signupError, setSignupError] = useState("");
+  const [agreedToRisk, setAgreedToRisk] = useState(false);
 
   const [resendCooldown, setResendCooldown] = useState(0);
 
@@ -130,6 +139,10 @@ export default function LoginForm() {
       setSignupError("密碼至少需要 6 碼");
       return;
     }
+    if (!agreedToRisk) {
+      setSignupError("請先閱讀並勾選同意騎乘風險與安全須知");
+      return;
+    }
     setSignupSubmitting(true);
     setSignupError("");
     const result = await completeSignupProfile(username, signupPassword);
@@ -149,6 +162,7 @@ export default function LoginForm() {
     setSignupUsername("");
     setSignupPassword("");
     setSignupError("");
+    setAgreedToRisk(false);
   }
 
   return (
@@ -351,10 +365,34 @@ export default function LoginForm() {
                     className="w-full rounded-xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
                   />
                 </div>
+                <div>
+                  <p className="mb-1.5 text-sm font-medium text-slate-600">騎乘風險與安全須知</p>
+                  <div className="max-h-32 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed text-slate-500">
+                    <p className="mb-1">
+                      本平台提供之路線僅供參考，實際騎乘涉及道路交通、天候、地形等不可控因素。使用者應：
+                    </p>
+                    <ul className="list-disc space-y-1 pl-4">
+                      {RIDE_DISCLAIMER.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <label className="mt-2 flex items-start gap-2 text-xs text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={agreedToRisk}
+                      onChange={(e) => setAgreedToRisk(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-500"
+                    />
+                    <span>我已閱讀並同意上述風險說明</span>
+                  </label>
+                </div>
                 {signupError && <p className="text-xs text-red-500">{signupError}</p>}
                 <button
                   type="submit"
-                  disabled={!signupUsername.trim() || !signupPassword || signupSubmitting}
+                  disabled={
+                    !signupUsername.trim() || !signupPassword || !agreedToRisk || signupSubmitting
+                  }
                   className="w-full rounded-full bg-emerald-500 py-3 text-base font-semibold text-white shadow-md transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
                   {signupSubmitting ? "完成註冊中…" : "完成註冊"}
