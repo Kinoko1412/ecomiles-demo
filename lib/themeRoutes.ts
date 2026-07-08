@@ -5,6 +5,15 @@ export type ThemeRouteStop = {
   deltaKm: number;
 };
 
+export type RouteRewardCheckpoint = {
+  /** 對應 stops 裡的站名，用來算這個獎勵點的累積里程/減碳量 */
+  stopName: string;
+  icon: string;
+  reward: string;
+  /** 有多選項的獎勵（例如終點可以選徽章或商家兌換券），有值就不用 reward 那個單一文字 */
+  options?: string[];
+};
+
 export type ThemeRoute = {
   id: string;
   name: string;
@@ -13,6 +22,9 @@ export type ThemeRoute = {
   totalDistanceKm: number;
   blurb: string;
   stops: ThemeRouteStop[];
+  rewardCheckpoints: RouteRewardCheckpoint[];
+  /** public/ 底下的示範行程靜態頁路徑，沒有的路線就不顯示示範行程按鈕 */
+  demoHtmlPath?: string;
 };
 
 export const THEME_ROUTES: ThemeRoute[] = [
@@ -30,6 +42,16 @@ export const THEME_ROUTES: ThemeRoute[] = [
       { name: "淺草堂（花蓮門市）", time: "11:30", deltaKm: 5.0 },
       { name: "花蓮好物分享館", time: "12:30", deltaKm: 5.9 },
     ],
+    rewardCheckpoints: [
+      { stopName: "吉安慶修院", icon: "🎫", reward: "慶修院門票" },
+      {
+        stopName: "花蓮好物分享館",
+        icon: "🎁",
+        reward: "完賽獎勵",
+        options: ["專屬徽章", "商家金額兌換券"],
+      },
+    ],
+    demoHtmlPath: "/routes/低碳騎行demo.html",
   },
 ];
 

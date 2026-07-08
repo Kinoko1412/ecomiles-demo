@@ -1,8 +1,5 @@
-type Milestone = {
-  label: string;
-  fraction: number;
-  valueKg: number;
-};
+import { calcCarbonSavedKg } from "@/lib/carbon";
+import type { ThemeRoute } from "@/lib/themeRoutes";
 
 const CHART_LEFT = 20;
 const CHART_RIGHT = 300;
@@ -11,24 +8,35 @@ const PEAK_Y = 20;
 const CHART_WIDTH = CHART_RIGHT - CHART_LEFT;
 const CHART_HEIGHT = BASELINE_Y - PEAK_Y;
 
-/** 用「山」的意象呈現行程進度里程碑：每 1/3 進度一個轉折點，終點是山峰（全程減碳量） */
-export default function CarbonMilestoneChart({ totalCarbonKg }: { totalCarbonKg: number }) {
-  const milestones: Milestone[] = [
-    { label: "第一階段", fraction: 1 / 3, valueKg: totalCarbonKg * (1 / 3) },
-    { label: "第二階段", fraction: 2 / 3, valueKg: totalCarbonKg * (2 / 3) },
-    { label: "顛峰", fraction: 1, valueKg: totalCarbonKg },
-  ];
+/** 用「山」的意象呈現行程獎勵站點：每個真實站點一個轉折點，終點是山峰（全程減碳量） */
+export default function CarbonMilestoneChart({ route }: { route: ThemeRoute }) {
+  let cumulativeKm = 0;
+  const cumulativeKmByStop = new Map<string, number>();
+  for (const stop of route.stops) {
+    cumulativeKm += stop.deltaKm;
+    cumulativeKmByStop.set(stop.name, cumulativeKm);
+  }
+
+  const checkpoints = route.rewardCheckpoints.map((c) => {
+    const distanceKm = cumulativeKmByStop.get(c.stopName) ?? route.totalDistanceKm;
+    return {
+      ...c,
+      distanceKm,
+      valueKg: calcCarbonSavedKg(distanceKm),
+      fraction: distanceKm / route.totalDistanceKm,
+    };
+  });
 
   const points = [
     { x: CHART_LEFT, y: BASELINE_Y },
-    ...milestones.map((m, i) => ({
-      x: CHART_LEFT + CHART_WIDTH * ((i + 1) / 3),
-      y: BASELINE_Y - CHART_HEIGHT * m.fraction,
+    ...checkpoints.map((c, i) => ({
+      x: CHART_LEFT + CHART_WIDTH * ((i + 1) / checkpoints.length),
+      y: BASELINE_Y - CHART_HEIGHT * c.fraction,
     })),
   ];
   const linePoints = points.map((p) => `${p.x},${p.y}`).join(" ");
   const areaPoints = `${CHART_LEFT},${BASELINE_Y} ${linePoints} ${CHART_RIGHT},${BASELINE_Y}`;
-  const peak = points[3];
+  const peak = points[points.length - 1];
 
   return (
     <div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
@@ -55,10 +63,10 @@ export default function CarbonMilestoneChart({ totalCarbonKg }: { totalCarbonKg:
         />
         {points.slice(1).map((p, i) => (
           <circle
-            key={milestones[i].label}
+            key={checkpoints[i].stopName}
             cx={p.x}
             cy={p.y}
-            r={i === milestones.length - 1 ? 5 : 4}
+            r={i === checkpoints.length - 1 ? 5 : 4}
             fill="#f59e0b"
             stroke="#0f172a"
             strokeWidth="2"
@@ -69,12 +77,17 @@ export default function CarbonMilestoneChart({ totalCarbonKg }: { totalCarbonKg:
         </text>
       </svg>
 
-      <div className="mt-1 grid grid-cols-3 gap-2 text-center">
-        {milestones.map((m) => (
-          <div key={m.label}>
-            <p className="text-[10px] text-slate-400">{m.label}</p>
-            <p className="text-xs font-semibold text-amber-400">{m.valueKg.toFixed(2)} kg</p>
-            <p className="text-[9px] text-emerald-400">🎁 額外獎勵</p>
+      <div
+        className="mt-1 grid gap-2 text-center"
+        style={{ gridTemplateColumns: `repeat(${checkpoints.length}, minmax(0, 1fr))` }}
+      >
+        {checkpoints.map((c) => (
+          <div key={c.stopName}>
+            <p className="text-[10px] text-slate-400">{c.stopName}</p>
+            <p className="text-xs font-semibold text-amber-400">{c.valueKg.toFixed(2)} kg</p>
+            <p className="text-[9px] text-emerald-400">
+              {c.icon} {c.options ? c.options.join(" 或 ") : c.reward}
+            </p>
           </div>
         ))}
       </div>

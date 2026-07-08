@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>一騎減碳・有機農場慢騎之旅｜花蓮低碳騎行</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;700;900&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#1E3A2A;        /* 深墨綠 */
+  --rice:#F7F5EE;       /* 稻米白 */
+  --seedling:#8FBF4D;   /* 秧苗綠 */
+  --soil:#6B4F3A;       /* 土壤棕 */
+  --ocean:#3E7C8F;      /* 海岸藍 */
+  --gold:#C9A227;       /* 榮譽金 */
+  --serif:'Noto Serif TC',serif;
+  --sans:'Noto Sans TC',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--rice);color:var(--ink);line-height:1.75;font-weight:400}
+
+/* ---------- HERO ---------- */
+.hero{min-height:92vh;background:var(--ink);color:var(--rice);display:flex;flex-direction:column;justify-content:center;padding:8vh 6vw 6vh;position:relative;overflow:hidden}
+.hero::after{content:"";position:absolute;bottom:-1px;left:0;right:0;height:60px;background:var(--rice);clip-path:polygon(0 100%,100% 100%,100% 40%,75% 70%,50% 30%,25% 65%,0 35%)}
+.hero .eyebrow{letter-spacing:.35em;font-size:.8rem;color:var(--seedling);margin-bottom:1.2rem;font-weight:500}
+.hero h1{font-family:var(--serif);font-weight:900;font-size:clamp(2.4rem,6.5vw,4.6rem);line-height:1.25;margin-bottom:1.4rem}
+.hero h1 em{font-style:normal;color:var(--seedling)}
+.hero p.lead{max-width:34em;font-weight:300;font-size:1.05rem;color:#CFDCCB;margin-bottom:2.4rem}
+.hero-stats{display:flex;gap:3rem;flex-wrap:wrap}
+.hero-stats .stat b{font-family:var(--serif);font-size:2rem;color:var(--seedling);display:block;line-height:1.2}
+.hero-stats .stat span{font-size:.82rem;color:#A8BCA4;letter-spacing:.08em}
+.route-strip{margin-top:3rem;font-size:.85rem;color:#A8BCA4;letter-spacing:.05em}
+.route-strip b{color:var(--rice)}
+
+/* ---------- 存摺 (signature) ---------- */
+#passbook{position:fixed;bottom:1.2rem;right:1.2rem;z-index:50;background:var(--ink);color:var(--rice);border:2px solid var(--seedling);border-radius:10px;padding:.8rem 1.1rem;box-shadow:0 8px 24px rgba(30,58,42,.35);min-width:170px;transition:transform .3s}
+#passbook .pb-title{font-size:.68rem;letter-spacing:.25em;color:var(--seedling);margin-bottom:.15rem}
+#passbook .pb-num{font-family:var(--serif);font-size:1.7rem;font-weight:700;line-height:1.1}
+#passbook .pb-num small{font-size:.75rem;font-weight:400;color:#A8BCA4;margin-left:.2em}
+#passbook .pb-bar{height:5px;background:#33523F;border-radius:3px;margin-top:.5rem;overflow:hidden}
+#passbook .pb-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--seedling),var(--gold));transition:width .6s ease}
+#passbook .pb-level{font-size:.7rem;margin-top:.35rem;color:#A8BCA4}
+#passbook .pb-level b{color:var(--gold)}
+#passbook.pulse{transform:scale(1.06)}
+
+/* ---------- 章節通用 ---------- */
+section{padding:5.5rem 6vw}
+.sec-eyebrow{letter-spacing:.3em;font-size:.75rem;color:var(--soil);font-weight:500;margin-bottom:.8rem}
+h2{font-family:var(--serif);font-weight:700;font-size:clamp(1.7rem,3.6vw,2.5rem);margin-bottom:1.2rem;line-height:1.35}
+.sec-lead{max-width:38em;color:#4A5D50;margin-bottom:2.5rem}
+
+/* ---------- 為什麼騎行 ---------- */
+.why{background:var(--rice)}
+.why-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:1.4rem;max-width:1100px}
+.why-card{background:#fff;border-radius:12px;padding:1.6rem 1.5rem;border-top:4px solid var(--seedling)}
+.why-card h3{font-family:var(--serif);font-size:1.1rem;margin-bottom:.6rem}
+.why-card p{font-size:.9rem;color:#4A5D50}
+.why-card .big{font-family:var(--serif);font-size:1.9rem;color:var(--ink);display:block;margin-bottom:.3rem}
+
+/* ---------- 路線站點 ---------- */
+.route{background:#EDEAE0}
+.stop{display:grid;grid-template-columns:64px 1fr;gap:1.6rem;max-width:920px;margin:0 auto 0;position:relative;padding:2.6rem 0}
+.stop:not(:last-child)::before{content:"";position:absolute;left:31px;top:96px;bottom:-30px;width:2px;background:repeating-linear-gradient(to bottom,var(--soil) 0 6px,transparent 6px 12px)}
+.stop-marker{width:64px;height:64px;border-radius:50%;background:var(--ink);color:var(--rice);display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--serif);font-weight:700;flex-shrink:0;position:relative;z-index:2}
+.stop-marker small{font-size:.55rem;letter-spacing:.15em;font-weight:400;color:var(--seedling)}
+.stop-marker span{font-size:1.3rem;line-height:1}
+.stop-body{background:#fff;border-radius:14px;padding:1.8rem 2rem;box-shadow:0 2px 10px rgba(30,58,42,.06)}
+.stop-body h3{font-family:var(--serif);font-size:1.35rem;margin-bottom:.2rem}
+.stop-body .sub{font-size:.82rem;color:var(--soil);letter-spacing:.06em;margin-bottom:1rem}
+.stop-body p{font-size:.93rem;color:#3D4F44;margin-bottom:1rem}
+.tags{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.tag{font-size:.72rem;padding:.25rem .7rem;border-radius:99px;letter-spacing:.05em;font-weight:500}
+.tag.E{background:#E4F0D3;color:#3E6B1F}
+.tag.S{background:#DDEBEF;color:#2A5A69}
+.tag.G{background:#F0E6D3;color:#7A5C1E}
+.carbon-line{display:flex;align-items:center;gap:.8rem;background:var(--rice);border-radius:10px;padding:.7rem 1rem;font-size:.85rem}
+.carbon-line .co2{font-family:var(--serif);font-weight:700;font-size:1.15rem;color:var(--ink);white-space:nowrap}
+.carbon-line .co2 small{font-size:.7rem;font-weight:400;color:#7A8B7F}
+.carbon-line .desc{color:#5A6B5F}
+.deposit-btn{margin-top:1rem;background:var(--ink);color:var(--rice);border:none;border-radius:8px;padding:.6rem 1.3rem;font-family:var(--sans);font-size:.85rem;letter-spacing:.08em;cursor:pointer;transition:background .2s}
+.deposit-btn:hover,.deposit-btn:focus-visible{background:var(--seedling);color:var(--ink)}
+.deposit-btn:disabled{background:#B9C6BC;color:#fff;cursor:default}
+.deposit-btn:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+
+/* ---------- ESG 對照 ---------- */
+.esg{background:var(--ink);color:var(--rice)}
+.esg .sec-eyebrow{color:var(--seedling)}
+.esg h2{color:var(--rice)}
+.esg .sec-lead{color:#B9CDB6}
+.esg-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem;max-width:1150px}
+.esg-col{background:#264A35;border-radius:14px;padding:1.8rem 1.7rem;border-top:5px solid var(--seedling)}
+.esg-col.s{border-top-color:var(--ocean)}
+.esg-col.g{border-top-color:var(--gold)}
+.esg-col .letter{font-family:var(--serif);font-size:2.6rem;font-weight:900;line-height:1;margin-bottom:.3rem;color:var(--seedling)}
+.esg-col.s .letter{color:#7FB8C9}
+.esg-col.g .letter{color:var(--gold)}
+.esg-col h3{font-size:1rem;letter-spacing:.1em;margin-bottom:1rem;color:#DCE8DA}
+.esg-col ul{list-style:none}
+.esg-col li{font-size:.88rem;color:#C4D6C2;padding:.45rem 0 .45rem 1.3rem;position:relative;border-bottom:1px solid rgba(247,245,238,.08)}
+.esg-col li::before{content:"—";position:absolute;left:0;color:var(--seedling)}
+.esg-col.s li::before{color:#7FB8C9}
+.esg-col.g li::before{color:var(--gold)}
+.esg-note{max-width:1150px;margin-top:2rem;background:rgba(143,191,77,.12);border-left:4px solid var(--seedling);border-radius:0 10px 10px 0;padding:1.2rem 1.5rem;font-size:.9rem;color:#D7E4D3}
+
+/* ---------- 企業方案 ---------- */
+.biz{background:var(--rice)}
+.biz-flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;max-width:1100px;counter-reset:step}
+.biz-step{background:#fff;border-radius:12px;padding:1.5rem 1.4rem;position:relative}
+.biz-step::before{counter-increment:step;content:counter(step,cjk-ideographic);font-family:var(--serif);font-size:1rem;color:var(--rice);background:var(--soil);width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:.9rem}
+.biz-step h3{font-size:1rem;margin-bottom:.5rem;font-family:var(--serif)}
+.biz-step p{font-size:.85rem;color:#4A5D50}
+
+/* ---------- 榮譽等級 ---------- */
+.honor{background:#EDEAE0}
+.levels{display:flex;gap:1rem;flex-wrap:wrap;max-width:1000px}
+.level{flex:1;min-width:180px;background:#fff;border-radius:12px;padding:1.5rem 1.3rem;text-align:center}
+.level .medal{font-size:2rem;margin-bottom:.5rem}
+.level h3{font-family:var(--serif);font-size:1.05rem;margin-bottom:.3rem}
+.level p{font-size:.8rem;color:#5A6B5F}
+.level.gold{border:2px solid var(--gold)}
+
+/* ---------- FOOTER ---------- */
+footer{background:var(--ink);color:#A8BCA4;padding:3rem 6vw;font-size:.85rem}
+footer b{color:var(--rice);font-family:var(--serif);font-size:1.05rem;display:block;margin-bottom:.5rem}
+
+@media(max-width:640px){
+  .stop{grid-template-columns:48px 1fr;gap:1rem}
+  .stop-marker{width:48px;height:48px}
+  .stop-marker span{font-size:1rem}
+  .stop:not(:last-child)::before{left:23px}
+  #passbook{min-width:145px;padding:.6rem .9rem}
+}
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  #passbook,.pb-fill,.deposit-btn{transition:none}
+}
+</style>
+</head>
+<body>
+
+<!-- 減碳存摺（簽名元素） -->
+<div id="passbook" role="status" aria-live="polite">
+  <div class="pb-title">我的減碳存摺</div>
+  <div class="pb-num"><span id="pbNum">0.00</span><small>kg CO₂e</small></div>
+  <div class="pb-bar"><div class="pb-fill" id="pbFill"></div></div>
+  <div class="pb-level" id="pbLevel">等級：<b>種子</b>・存入 5 站解鎖徽章</div>
+</div>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="eyebrow">HUALIEN LOW-CARBON RIDE・吉安—壽豐</div>
+  <h1>把每一公里，<br>存進<em>減碳存摺</em>。</h1>
+  <p class="lead">一條 3–4 小時的有機農場慢騎路線，串起日式文化、農業知識、有機茶飲與在地好物。你騎過的每一站，都是對這片土地的一筆存款——也是企業 ESG 報告書裡，一段可以被驗證的故事。</p>
+  <div class="hero-stats">
+    <div class="stat"><b>16.8 km</b><span>全程騎行距離</span></div>
+    <div class="stat"><b>3.53 kg</b><span>相較開車減碳 CO₂e</span></div>
+    <div class="stat"><b>5 站</b><span>文化×農業×環教闖關</span></div>
+  </div>
+  <div class="route-strip">路線：<b>花蓮火車站</b> → 吉安慶修院 → 花蓮區農業改良場 → 淺草堂 → <b>花蓮好物分享館</b></div>
+</header>
+
+<!-- 為什麼是騎行 -->
+<section class="why">
+  <div class="sec-eyebrow">WHY CYCLING</div>
+  <h2>為什麼從「騎行」開始減碳？</h2>
+  <p class="sec-lead">交通運輸佔台灣碳排放約 14%。同樣一段吉安到壽豐的旅程，選擇不同的移動方式，留下的碳足跡差距超過 40 倍。</p>
+  <div class="why-grid">
+    <div class="why-card"><span class="big">≈ 0.21 kg</span><h3>自行車 / 每公里 CO₂e</h3><p>汽車每公里約排放 0.21 kg CO₂e，自行車趨近於零。騎完全程 16.8 公里，等於幫地球省下 3.5 公斤的碳。</p></div>
+    <div class="why-card"><span class="big">1/6 棵樹</span><h3>一趟旅程的貢獻</h3><p>一棵樹一年約吸收 21 公斤 CO₂。你的一趟慢騎，就完成了一棵樹兩個月的工作量。</p></div>
+    <div class="why-card"><span class="big">2025</span><h3>花蓮低碳元年</h3><p>呼應花蓮縣「山海一線低碳騎行」政策與 2025 減碳指標，把政策願景變成每個人可累積、可分享的個人行動。</p></div>
+  </div>
+</section>
+
+<!-- 路線站點 -->
+<section class="route" id="route">
+  <div class="sec-eyebrow">THE ROUTE・有機農場慢騎之旅</div>
+  <h2>五站，五種在地特色，五筆減碳存款</h2>
+  <p class="sec-lead">每一站掃碼打卡即「存入」該路段的減碳量，並解鎖在地故事與 ESG 標籤。試試看下方的「存入存摺」按鈕。</p>
+
+  <div class="stop" data-co2="0.00">
+    <div class="stop-marker"><small>START</small><span>1</span></div>
+    <div class="stop-body">
+      <h3>花蓮火車站</h3>
+      <div class="sub">出發點・自行車租借・09:00</div>
+      <div class="tags"><span class="tag G">G｜低碳交通治理</span><span class="tag E">E｜綠色運具</span></div>
+      <p><b>在地特色：</b>花東門戶，全台最美車站之一。旅客不開車、搭火車進花蓮，本身就是這趟旅程的第一筆減碳——「鐵路進站＋單車出發」是完整的低碳旅運鏈。</p>
+      <p><b>環境教育體驗：</b>APP 於此完成註冊與碳足跡基準設定，讓旅客理解「移動方式的選擇」如何決定碳排放。</p>
+      <div class="carbon-line"><span class="co2">起點<small>　基準 0</small></span><span class="desc">開啟減碳存摺，設定本次旅程的碳帳戶</span></div>
+      <button class="deposit-btn" data-amount="0.10" data-name="火車站出發">存入存摺 +0.10 kg（開帳獎勵）</button>
+    </div>
+  </div>
+
+  <div class="stop">
+    <div class="stop-marker"><small>STOP</small><span>2</span></div>
+    <div class="stop-body">
+      <h3>吉安慶修院</h3>
+      <div class="sub">文化闖關・騎行 5.6 km・09:40</div>
+      <div class="tags"><span class="tag S">S｜文化保存</span><span class="tag E">E｜低碳移動</span></div>
+      <p><b>在地特色：</b>台灣保存最完整的日式佛寺，見證吉安（舊名吉野）日治移民村的農墾歷史——這裡是花蓮「農業移民」故事的起點，與今天的有機農業一脈相承。</p>
+      <p><b>環境教育體驗：</b>掃碼解鎖「吉野移民村與土地的百年關係」語音導覽，理解農業聚落如何與環境共生。</p>
+      <div class="carbon-line"><span class="co2">−1.18 kg<small> CO₂e</small></span><span class="desc">5.6 km 以單車取代汽車的減碳量</span></div>
+      <button class="deposit-btn" data-amount="1.18" data-name="慶修院">存入存摺 +1.18 kg</button>
+    </div>
+  </div>
+
+  <div class="stop">
+    <div class="stop-marker"><small>STOP</small><span>3</span></div>
+    <div class="stop-body">
+      <h3>農業部花蓮區農業改良場</h3>
+      <div class="sub">知識闖關・騎行 0.3 km・10:20</div>
+      <div class="tags"><span class="tag E">E｜有機農業研究</span><span class="tag S">S｜食農教育</span></div>
+      <p><b>在地特色：</b>花蓮是全台有機農業面積最大的縣市，而這裡就是幕後推手——研究有機栽培、土壤健康與友善耕作技術的國家級基地，也是原民作物（紅藜、樹豆）保種的重要據點。</p>
+      <p><b>環境教育體驗：</b>「一把土壤的碳」互動關卡：健康的有機土壤是天然碳匯，每公頃有機農地每年可多固碳約 0.5 噸。答對闖關題即獲得雙倍點數。</p>
+      <div class="carbon-line"><span class="co2">−0.06 kg<small> CO₂e</small></span><span class="desc">短程接駁＋知識闖關加成點數</span></div>
+      <button class="deposit-btn" data-amount="0.06" data-name="農改場">存入存摺 +0.06 kg</button>
+    </div>
+  </div>
+
+  <div class="stop">
+    <div class="stop-marker"><small>STOP</small><span>4</span></div>
+    <div class="stop-body">
+      <h3>淺草堂（花蓮門市）</h3>
+      <div class="sub">有機茶飲體驗・騎行 5.0 km・11:30</div>
+      <div class="tags"><span class="tag E">E｜有機認證農產</span><span class="tag G">G｜商家分潤示範</span></div>
+      <p><b>在地特色：</b>在地有機茶飲品牌，主打有機苦瓜茶、薄荷茶、蜜香紅茶——原料來自花蓮契作有機農場，從土地到茶杯全程可追溯。</p>
+      <p><b>環境教育體驗：</b>用減碳點數兌換有機茶試飲，親身體驗「點數→在地消費」的循環。此站同時是商業模式示範點：商家提供折扣，平台分潤，遊客得實惠——三方共好。</p>
+      <div class="carbon-line"><span class="co2">−1.05 kg<small> CO₂e</small></span><span class="desc">5.0 km 減碳＋使用環保杯加成 0.03 kg</span></div>
+      <button class="deposit-btn" data-amount="1.08" data-name="淺草堂">存入存摺 +1.08 kg</button>
+    </div>
+  </div>
+
+  <div class="stop">
+    <div class="stop-marker"><small>GOAL</small><span>5</span></div>
+    <div class="stop-body">
+      <h3>花蓮好物分享館</h3>
+      <div class="sub">終點結算・騎行 5.9 km・12:30</div>
+      <div class="tags"><span class="tag S">S｜在地小農支持</span><span class="tag E">E｜短食物里程</span><span class="tag G">G｜點數兌換治理</span></div>
+      <p><b>在地特色：</b>集結花蓮在地小農產品的共享平台——買一份伴手禮，就是支持一位在地生產者。產地到貨架不到 30 公里，食物里程遠低於進口商品。</p>
+      <p><b>環境教育體驗：</b>結算本次旅程總減碳量，領取「榮耀存摺徽章」，並可用點數折抵在地農產採購——把減碳貢獻直接回饋到土地上的人。</p>
+      <div class="carbon-line"><span class="co2">−1.24 kg<small> CO₂e</small></span><span class="desc">5.9 km 減碳＋完騎徽章結算</span></div>
+      <button class="deposit-btn" data-amount="1.11" data-name="好物分享館">存入存摺 +1.11 kg・領取徽章</button>
+    </div>
+  </div>
+</section>
+
+<!-- ESG 對照 -->
+<section class="esg">
+  <div class="sec-eyebrow">ESG MAPPING</div>
+  <h2>一條路線，如何寫進企業永續報告書</h2>
+  <p class="sec-lead">員工旅遊結合教育訓練，是企業 ESG 揭露中「員工發展」與「社會參與」的交集。這條路線的每一站，都能對應到具體的揭露項目。</p>
+  <div class="esg-grid">
+    <div class="esg-col e">
+      <div class="letter">E</div>
+      <h3>環境 Environmental</h3>
+      <ul>
+        <li>可量化的移動減碳：每人每趟 3.53 kg CO₂e，附騎行軌跡佐證</li>
+        <li>支持有機農業＝支持土壤碳匯與生物多樣性</li>
+        <li>環保餐具、環保杯全程使用，零一次性廢棄物</li>
+        <li>短食物里程的在地採購行動</li>
+      </ul>
+    </div>
+    <div class="esg-col s">
+      <div class="letter">S</div>
+      <h3>社會 Social</h3>
+      <ul>
+        <li>食農教育訓練：農改場知識闖關可列入員工教育時數</li>
+        <li>日式移民村文化保存的實地認識</li>
+        <li>消費直接回饋在地小農與部落生產者</li>
+        <li>親子與員工共融的健康促進活動</li>
+      </ul>
+    </div>
+    <div class="esg-col g">
+      <div class="letter">G</div>
+      <h3>治理 Governance</h3>
+      <ul>
+        <li>減碳數據透明可稽核：APP 自動產出活動減碳報告</li>
+        <li>呼應花蓮縣低碳政策與 2050 淨零路徑</li>
+        <li>商家分潤機制公開，供應鏈在地化</li>
+        <li>騎行保險與風險管控納入活動治理</li>
+      </ul>
+    </div>
+  </div>
+  <div class="esg-note"><b>給企業的一句話：</b>一場 30 人的員工低碳騎行＝約 106 kg CO₂e 減量＋4 小時教育訓練時數＋在地採購貢獻——三個數字，直接放進永續報告書。</div>
+</section>
+
+<!-- 企業方案 -->
+<section class="biz">
+  <div class="sec-eyebrow">FOR ENTERPRISE</div>
+  <h2>企業 ESG 員工旅遊，四步成行</h2>
+  <p class="sec-lead">參考「認養一畝田」模式：不只是旅遊，而是讓企業與土地建立長期關係。</p>
+  <div class="biz-flow">
+    <div class="biz-step"><h3>選擇主題路線</h3><p>有機農場線或部落文化線，3–4 小時，可組合成一日或二日方案。</p></div>
+    <div class="biz-step"><h3>綁定教育訓練</h3><p>食農體驗、部落文化課程列入員工教育時數，符合 ESG 揭露要求。</p></div>
+    <div class="biz-step"><h3>騎行＋闖關</h3><p>員工人手一本減碳存摺，團隊排名賽激發參與，全程投保。</p></div>
+    <div class="biz-step"><h3>產出減碳報告</h3><p>APP 自動結算活動總減碳量與在地消費額，直接引用於永續報告書。</p></div>
+  </div>
+</section>
+
+<!-- 榮譽等級 -->
+<section class="honor">
+  <div class="sec-eyebrow">HONOR SYSTEM</div>
+  <h2>減碳存摺：一本值得炫耀的存摺</h2>
+  <p class="sec-lead">存摺裡存的不是錢，是你對這片土地的貢獻度。累積、升級、上榜——年度全國排名賽，冠軍由花蓮在地業者贊助頒獎。</p>
+  <div class="levels">
+    <div class="level"><div class="medal">🌱</div><h3>種子</h3><p>0–5 kg CO₂e<br>完成第一趟騎行</p></div>
+    <div class="level"><div class="medal">🌿</div><h3>秧苗</h3><p>5–20 kg CO₂e<br>解鎖商家兌換權</p></div>
+    <div class="level"><div class="medal">🌾</div><h3>結穗</h3><p>20–50 kg CO₂e<br>專屬路線搶先體驗</p></div>
+    <div class="level gold"><div class="medal">👑</div><h3>守護者</h3><p>50 kg CO₂e 以上<br>年度排名賽資格・實體獎牌</p></div>
+  </div>
+</section>
+
+<footer>
+  <b>一騎減碳｜花蓮低碳騎行平台（Demo）</b>
+  以主題路線 × 減碳存摺，把花蓮縣山海一線低碳政策，變成人人可參與、企業可揭露、商家可獲利的旅遊新模式。<br>
+  減碳係數參考：汽車 0.21 kg CO₂e/km（經濟部能源署小客車平均排放係數概估）。本頁為簡報示範用途。
+</footer>
+
+<script>
+(function(){
+  const GOAL = 3.53;
+  let total = 0, deposits = 0;
+  const num = document.getElementById('pbNum');
+  const fill = document.getElementById('pbFill');
+  const level = document.getElementById('pbLevel');
+  const pb = document.getElementById('passbook');
+
+  function levelName(t){
+    if(deposits >= 5) return '守護者 👑';
+    if(t >= 2.5) return '結穗 🌾';
+    if(t >= 1.2) return '秧苗 🌿';
+    return '種子 🌱';
+  }
+
+  document.querySelectorAll('.deposit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      total += parseFloat(btn.dataset.amount);
+      deposits++;
+      num.textContent = total.toFixed(2);
+      fill.style.width = Math.min(100, total / GOAL * 100) + '%';
+      level.innerHTML = deposits >= 5
+        ? '等級：<b>守護者 👑</b>・完騎徽章已解鎖！'
+        : '等級：<b>' + levelName(total) + '</b>・已存入 ' + deposits + ' / 5 站';
+      btn.disabled = true;
+      btn.textContent = '✓ 已存入（' + btn.dataset.name + '）';
+      pb.classList.add('pulse');
+      setTimeout(() => pb.classList.remove('pulse'), 300);
+    });
+  });
+})();
+</script>
+</body>
+</html>
