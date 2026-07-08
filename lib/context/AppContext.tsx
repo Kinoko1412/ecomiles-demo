@@ -188,6 +188,11 @@ type AppContextValue = {
   ) => Promise<CompleteRideResult>;
   redeemReward: (rewardId: string) => Promise<RedeemResult>;
   drawLottery: () => Promise<DrawLotteryResult>;
+  recordPurchase: (
+    kind: "single_route_unlock" | "subscription_standard" | "subscription_premium",
+    routeId: string | null,
+    amountNT: number
+  ) => Promise<{ success: boolean }>;
 };
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -561,6 +566,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return result;
   }, [supabase]);
 
+  const recordPurchase = useCallback(
+    async (
+      kind: "single_route_unlock" | "subscription_standard" | "subscription_premium",
+      routeId: string | null,
+      amountNT: number
+    ): Promise<{ success: boolean }> => {
+      const { data, error } = await supabase.rpc("record_purchase", {
+        p_kind: kind,
+        p_route_id: routeId,
+        p_amount_nt: amountNT,
+      });
+      if (error || !data) {
+        throw new Error(error?.message ?? "record_purchase 失敗");
+      }
+      return data as unknown as { success: boolean };
+    },
+    [supabase]
+  );
+
   const visitedStations = useMemo(
     () => Array.from(new Set(rides.flatMap((r) => [r.startStation, r.endStation]))),
     [rides]
@@ -597,6 +621,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     completeRide,
     redeemReward,
     drawLottery,
+    recordPurchase,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

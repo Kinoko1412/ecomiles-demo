@@ -1,10 +1,25 @@
-import { SUBSCRIPTION_PLANS } from "@/lib/subscriptionPlans";
+"use client";
 
-export default function SubscriptionTierCards() {
+import { useState } from "react";
+import { SUBSCRIPTION_PLANS, type SubscriptionPlan } from "@/lib/subscriptionPlans";
+
+export default function SubscriptionTierCards({
+  onSubscribe,
+}: {
+  onSubscribe?: (plan: SubscriptionPlan) => void;
+}) {
+  const [subscribedId, setSubscribedId] = useState<string | null>(null);
+
+  function handleClick(plan: SubscriptionPlan) {
+    setSubscribedId(plan.id);
+    onSubscribe?.(plan);
+  }
+
   return (
     <div className="flex flex-col gap-3">
       {SUBSCRIPTION_PLANS.map((plan) => {
         const isPremium = plan.id === "premium";
+        const isSubscribed = subscribedId === plan.id;
         return (
           <div
             key={plan.id}
@@ -29,13 +44,20 @@ export default function SubscriptionTierCards() {
                 <li key={perk}>・{perk}</li>
               ))}
             </ul>
-            <div
-              className={`mt-3 w-full rounded-full py-2 text-center text-sm font-semibold ${
-                isPremium ? "bg-amber-400 text-amber-950" : "bg-white text-slate-900"
+            <button
+              type="button"
+              onClick={() => handleClick(plan)}
+              disabled={isSubscribed}
+              className={`mt-3 w-full rounded-full py-2 text-center text-sm font-semibold transition-colors ${
+                isSubscribed
+                  ? "cursor-default bg-emerald-400 text-emerald-950"
+                  : isPremium
+                  ? "bg-amber-400 text-amber-950 hover:bg-amber-300"
+                  : "bg-white text-slate-900 hover:bg-slate-100"
               }`}
             >
-              立即訂閱
-            </div>
+              {isSubscribed ? "✓ 已訂閱" : "立即訂閱"}
+            </button>
           </div>
         );
       })}

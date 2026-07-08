@@ -198,7 +198,7 @@ export default function LoginForm() {
               portal === "admin" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-400"
             }`}
           >
-            政府管理端
+            內部管理登入
           </button>
         </div>
 
@@ -229,7 +229,7 @@ export default function LoginForm() {
         )}
 
         {portal === "admin" && (
-          <p className="mb-4 text-center text-sm font-semibold text-slate-600">政府管理端登入</p>
+          <p className="mb-4 text-center text-sm font-semibold text-slate-600">內部管理後台登入</p>
         )}
 
         {tab === "login" ? (

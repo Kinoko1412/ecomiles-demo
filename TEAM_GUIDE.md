@@ -79,7 +79,7 @@ const { nickname, totalDistanceKm, points, currentStreakDays, completeRide, ... 
 | `/profile/history` | 減碳存摺：累積數據 count-up 動畫、模擬全站排名、recharts 圖表 |
 | `/redeem` | 兌換頁：用點數換獎品 |
 | `/redeem/lottery` | 抽獎頁 |
-| `/gov-dashboard` | 政府端全站統計儀表板，**沒有底部導覽列**，只能直接打網址進去，無登入門檻，含年度人氣趨勢圖 |
+| `/gov-dashboard` | 內部營運後台，**沒有底部導覽列**，只能直接打網址進去，需要 `profiles.role = 'admin'` 才進得去（見 `supabase/migrations/0004_admin_role.sql`），內容含全站騎乘/減碳統計、營收（訂閱＋單次解鎖）數字、年度人氣趨勢圖 |
 | `/auth/callback` | Route Handler，處理信箱驗證連結（備援用，主要流程走輸入驗證碼，見下） |
 | `/api/assistant` | Route Handler，AI 導覽員後端（呼叫 DeepSeek） |
 | `/api/weather` | Route Handler，天氣卡片後端（呼叫 CWA，含本地快取 fallback） |

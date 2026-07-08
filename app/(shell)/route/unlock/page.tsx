@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { THEME_ROUTES, buildGoogleMapsDirUrl, SINGLE_ROUTE_UNLOCK_PRICE_NT } from "@/lib/themeRoutes";
+import { useApp } from "@/lib/context/AppContext";
 import CarbonMilestoneChart from "@/components/CarbonMilestoneChart";
 import SubscriptionTierCards from "@/components/SubscriptionTierCards";
 import SingleRouteUnlockCard from "@/components/SingleRouteUnlockCard";
@@ -20,6 +21,16 @@ function UnlockPageContent() {
   const routeId = useSearchParams().get("routeId");
   const route = THEME_ROUTES.find((r) => r.id === routeId) ?? THEME_ROUTES[0];
   const [demoState, setDemoState] = useState<DemoState>("browse");
+  const { recordPurchase } = useApp();
+
+  async function handleUnlock() {
+    setDemoState("thankyou");
+    try {
+      await recordPurchase("single_route_unlock", route.id, SINGLE_ROUTE_UNLOCK_PRICE_NT);
+    } catch {
+      // demo 用途，即使寫入失敗也不影響已經看到的「感謝贊助」畫面
+    }
+  }
 
   if (demoState === "thankyou") {
     return (
@@ -160,11 +171,19 @@ function UnlockPageContent() {
       </div>
 
       <div className="mx-auto mt-3 max-w-md">
-        <SingleRouteUnlockCard route={route} onUnlock={() => setDemoState("thankyou")} />
+        <SingleRouteUnlockCard route={route} onUnlock={handleUnlock} />
       </div>
 
       <div className="mx-auto mt-3 max-w-md">
-        <SubscriptionTierCards />
+        <SubscriptionTierCards
+          onSubscribe={(plan) => {
+            recordPurchase(
+              plan.id === "premium" ? "subscription_premium" : "subscription_standard",
+              null,
+              plan.priceNT
+            ).catch(() => {});
+          }}
+        />
       </div>
 
       <div className="mx-auto mb-10 mt-3 max-w-md">

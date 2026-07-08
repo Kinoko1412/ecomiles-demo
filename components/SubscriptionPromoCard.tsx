@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useApp } from "@/lib/context/AppContext";
 import SubscriptionTierCards from "@/components/SubscriptionTierCards";
 
 export default function SubscriptionPromoCard() {
   const [showPlans, setShowPlans] = useState(false);
+  const { recordPurchase } = useApp();
 
   return (
     <>
@@ -51,7 +53,15 @@ export default function SubscriptionPromoCard() {
                 ✕
               </button>
             </div>
-            <SubscriptionTierCards />
+            <SubscriptionTierCards
+              onSubscribe={(plan) => {
+                recordPurchase(
+                  plan.id === "premium" ? "subscription_premium" : "subscription_standard",
+                  null,
+                  plan.priceNT
+                ).catch(() => {});
+              }}
+            />
             <p className="mt-3 text-center text-[11px] text-slate-500">
               此畫面為 demo 展示，尚未串接金流
             </p>

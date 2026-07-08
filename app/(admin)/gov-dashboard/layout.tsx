@@ -26,7 +26,7 @@ export default async function GovDashboardLayout({
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
       <header className="flex items-center justify-between bg-slate-800 px-6 py-3">
-        <h1 className="text-sm font-semibold text-white">花蓮縣政府管理後台</h1>
+        <h1 className="text-sm font-semibold text-white">Ecomiles 內部營運後台</h1>
         <AdminLogoutButton />
       </header>
       <main className="flex-1">{children}</main>
