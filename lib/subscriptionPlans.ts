@@ -10,7 +10,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   {
     id: "standard",
     name: "低碳玩家方案",
-    priceNT: 199,
+    priceNT: 1499,
     perks: [
       "訂閱期間解鎖所有主題路線",
       "點數加成、優先兌換資格",
