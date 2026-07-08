@@ -14,6 +14,11 @@ export type RouteRewardCheckpoint = {
   options?: string[];
 };
 
+export type RouteCostItem = {
+  label: string;
+  amountNT: number;
+};
+
 export type ThemeRoute = {
   id: string;
   name: string;
@@ -25,6 +30,8 @@ export type ThemeRoute = {
   rewardCheckpoints: RouteRewardCheckpoint[];
   /** public/ 底下的示範行程靜態頁路徑，沒有的路線就不顯示示範行程按鈕 */
   demoHtmlPath?: string;
+  /** 每人變動成本明細（車輛租借、門票、體驗費、保險等），公開給客戶看單次解鎖價格的成本依據 */
+  costBreakdown: RouteCostItem[];
 };
 
 export const THEME_ROUTES: ThemeRoute[] = [
@@ -52,11 +59,22 @@ export const THEME_ROUTES: ThemeRoute[] = [
       },
     ],
     demoHtmlPath: "/routes/低碳騎行demo.html",
+    costBreakdown: [
+      { label: "腳踏車批發租借", amountNT: 150 },
+      { label: "慶修院門票", amountNT: 30 },
+      { label: "農改場體驗費", amountNT: 80 },
+      { label: "騎行保險", amountNT: 30 },
+    ],
   },
 ];
 
-/** 單一遊程解鎖價（每條路線都適用同一個嚐鮮價） */
-export const SINGLE_ROUTE_UNLOCK_PRICE_NT = 99;
+/** 單一遊程解鎖價（每條路線都適用同一個價格）；已涵蓋 costBreakdown 的實支變動成本 + 平台維運/推廣 */
+export const SINGLE_ROUTE_UNLOCK_PRICE_NT = 499;
+
+/** 算出一條路線 costBreakdown 的小計，給客戶端顯示成本透明度用 */
+export function sumRouteCost(route: ThemeRoute): number {
+  return route.costBreakdown.reduce((sum, item) => sum + item.amountNT, 0);
+}
 
 /** Google Maps 多站導航連結：用站名組成 /dir/ 路徑，瀏覽器端自動 geocode，不需要 Maps API key */
 export function buildGoogleMapsDirUrl(route: ThemeRoute): string {

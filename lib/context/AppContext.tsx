@@ -189,7 +189,7 @@ type AppContextValue = {
   redeemReward: (rewardId: string) => Promise<RedeemResult>;
   drawLottery: () => Promise<DrawLotteryResult>;
   recordPurchase: (
-    kind: "single_route_unlock" | "subscription_standard" | "subscription_premium",
+    kind: "single_route_unlock" | "subscription_standard",
     routeId: string | null,
     amountNT: number
   ) => Promise<{ success: boolean }>;
@@ -568,7 +568,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const recordPurchase = useCallback(
     async (
-      kind: "single_route_unlock" | "subscription_standard" | "subscription_premium",
+      kind: "single_route_unlock" | "subscription_standard",
       routeId: string | null,
       amountNT: number
     ): Promise<{ success: boolean }> => {

@@ -177,11 +177,7 @@ function UnlockPageContent() {
       <div className="mx-auto mt-3 max-w-md">
         <SubscriptionTierCards
           onSubscribe={(plan) => {
-            recordPurchase(
-              plan.id === "premium" ? "subscription_premium" : "subscription_standard",
-              null,
-              plan.priceNT
-            ).catch(() => {});
+            recordPurchase("subscription_standard", null, plan.priceNT).catch(() => {});
           }}
         />
       </div>

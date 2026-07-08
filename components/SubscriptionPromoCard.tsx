@@ -18,7 +18,7 @@ export default function SubscriptionPromoCard() {
           <span className="text-2xl">👑</span>
         </div>
         <p className="mt-2 text-base font-bold">低碳玩家方案</p>
-        <p className="text-sm text-white/90">NT$199 / 月起</p>
+        <p className="text-sm text-white/90">NT$199 / 月</p>
         <ul className="mt-2 space-y-0.5 text-[11px] text-white/85">
           <li>・專屬主題路線每月更新</li>
           <li>・點數加成、優先兌換資格</li>
@@ -55,11 +55,7 @@ export default function SubscriptionPromoCard() {
             </div>
             <SubscriptionTierCards
               onSubscribe={(plan) => {
-                recordPurchase(
-                  plan.id === "premium" ? "subscription_premium" : "subscription_standard",
-                  null,
-                  plan.priceNT
-                ).catch(() => {});
+                recordPurchase("subscription_standard", null, plan.priceNT).catch(() => {});
               }}
             />
             <p className="mt-3 text-center text-[11px] text-slate-500">
