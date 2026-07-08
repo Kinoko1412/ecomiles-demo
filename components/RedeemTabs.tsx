@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const TABS = [
   { href: "/redeem", label: "直接兌換" },
   { href: "/redeem/lottery", label: "抽獎" },
+  { href: "/redeem/shops", label: "特約商家" },
 ];
 
 export default function RedeemTabs() {

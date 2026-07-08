@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useApp, type RewardWithStock } from "@/lib/context/AppContext";
 import Modal from "@/components/Modal";
 import RedeemTabs from "@/components/RedeemTabs";
-import PartnerMerchantSection from "@/components/PartnerMerchantSection";
 
 export default function RedeemPage() {
   const { points, rewards, rewardsStock, redeemReward } = useApp();
@@ -78,8 +77,6 @@ export default function RedeemPage() {
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-5 px-6 pt-10">
-      <PartnerMerchantSection />
-
       <RedeemTabs />
 
       <div className="flex items-center justify-between">
