@@ -13,19 +13,17 @@ export const PARTNER_MERCHANTS: PartnerMerchant[] = [
     name: "洄遊吧食魚體驗館",
     category: "食魚教育",
     photo: "/shop/洄遊吧食魚體驗館.jpg",
-    description: "以海洋保育與食魚文化為主題的體驗館，提供永續海鮮知識與互動導覽。",
-    googleMapsUrl:
-      "https://www.google.com/maps/search/?api=1&query=" +
-      encodeURIComponent("洄遊吧食魚體驗館 花蓮"),
+    description:
+      "一處結合環境教育與食魚文化的體驗館。洄游吧致力於推廣永續海洋的觀念，透過生動的展覽與課程，讓遊客認識台灣東部的海域環境與洄游魚類。",
+    googleMapsUrl: "https://maps.app.goo.gl/Jdw9yXytcoqx19588",
   },
   {
     id: "qixing-katsuo",
     name: "七星柴魚博物館",
     category: "地方文化",
     photo: "/shop/七星柴魚博物館.jpg",
-    description: "花蓮在地柴魚產業歷史展示館，近距離了解傳統柴魚製作工藝與海洋文化。",
-    googleMapsUrl:
-      "https://www.google.com/maps/search/?api=1&query=" +
-      encodeURIComponent("七星柴魚博物館 花蓮"),
+    description:
+      "博物館由舊有的柴魚工廠改建而成，是認識花蓮在地漁村歷史與柴魚製作工藝的重要據點。",
+    googleMapsUrl: "https://maps.app.goo.gl/C7caUxtBDM7TEyrG9",
   },
 ];

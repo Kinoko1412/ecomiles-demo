@@ -21,16 +21,22 @@ export default function ThemeRouteSection() {
   }
 
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-sm font-semibold text-slate-600">精選主題路線</h2>
+    <section className="rounded-3xl bg-gradient-to-br from-amber-50 to-white p-3 ring-1 ring-amber-200">
+      <h2 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-amber-700">
+        👑 VIP 專屬路線
+      </h2>
+      <div className="flex flex-col gap-3">
       {THEME_ROUTES.map((route) => {
         const isOpen = expanded.has(route.id);
         const carbonSavedKg = calcCarbonSavedKg(route.totalDistanceKm);
         return (
           <div
             key={route.id}
-            className="rounded-2xl bg-white/85 p-4 shadow-sm ring-1 ring-black/5"
+            className="relative rounded-2xl bg-gradient-to-br from-amber-100/70 to-white p-4 shadow-sm ring-1 ring-amber-300"
           >
+            <span className="absolute -right-1 -top-1 rounded-full bg-amber-400 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-sm">
+              👑 VIP
+            </span>
             <button
               type="button"
               onClick={() => toggleRoute(route.id)}
@@ -127,6 +133,7 @@ export default function ThemeRouteSection() {
           </div>
         );
       })}
+      </div>
     </section>
   );
 }
